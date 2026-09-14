@@ -85,6 +85,39 @@ router.post('/roster/delete/:id', requireAdmin, (req, res) => {
   res.redirect('/admin/roster?success=Member removed');
 });
 
+router.post('/roster/send-magic-link/:id', requireAdmin, async (req, res) => {
+  const member = get('SELECT * FROM members WHERE id = ?', [req.params.id]);
+  if (!member) return res.redirect('/admin/roster?error=Member not found');
+  const token = uuidv4();
+  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  run('INSERT INTO magic_links (member_id, token, expires_at) VALUES (?,?,?)', [member.id, token, expires]);
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  const link = `${appUrl}/member/auth?token=${token}`;
+  await sendEmail(member.email, 'Your Communion Scheduler Login Link',
+    `<p>Hi ${member.name},</p><p>You've been invited to the McLean Presbyterian Church Communion Server Scheduler. Click the link below to log in and set up your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Log In to Communion Scheduler</a></p><p>This link expires in 7 days.</p><p>If you didn't expect this email, you can safely ignore it.</p>`,
+    `Hi ${member.name}, you've been invited to the Communion Scheduler. Log in here: ${link} (expires in 7 days)`
+  );
+  res.redirect('/admin/roster?success=' + encodeURIComponent(`Magic link sent to ${member.name}`));
+});
+
+router.post('/roster/send-magic-links-all', requireAdmin, async (req, res) => {
+  const members = all('SELECT * FROM members');
+  let sent = 0;
+  const appUrl = process.env.APP_URL || 'http://localhost:3000';
+  for (const member of members) {
+    const token = uuidv4();
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    run('INSERT INTO magic_links (member_id, token, expires_at) VALUES (?,?,?)', [member.id, token, expires]);
+    const link = `${appUrl}/member/auth?token=${token}`;
+    await sendEmail(member.email, 'Your Communion Scheduler Login Link',
+      `<p>Hi ${member.name},</p><p>You've been invited to the McLean Presbyterian Church Communion Server Scheduler. Click the link below to log in and set up your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Log In to Communion Scheduler</a></p><p>This link expires in 7 days.</p><p>If you didn't expect this email, you can safely ignore it.</p>`,
+      `Hi ${member.name}, you've been invited to the Communion Scheduler. Log in here: ${link} (expires in 7 days)`
+    );
+    sent++;
+  }
+  res.redirect('/admin/roster?success=' + encodeURIComponent(`Magic links sent to ${sent} member(s)`));
+});
+
 router.post('/roster/import', requireAdmin, upload.single('csv'), (req, res) => {
   try {
     const content = req.file.buffer.toString('utf-8');

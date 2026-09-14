@@ -8,6 +8,15 @@ const { sendNotification, sendEmail } = require('../services/mailer');
 const { getServiceHistory } = require('../services/scheduler');
 const { formatDate } = require('../services/reminderScheduler');
 
+function validatePassword(password) {
+  const errors = [];
+  if (password.length < 8) errors.push('At least 8 characters');
+  if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
+  if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
+  if (!/[0-9]/.test(password)) errors.push('At least one number');
+  return errors;
+}
+
 router.get('/login', (req, res) => {
   res.render('member/login', { error: null, step: 'email', email: '' });
 });
@@ -29,6 +38,10 @@ router.post('/login', (req, res) => {
   if (step === 'create_password') {
     const member = get('SELECT * FROM members WHERE email = ?', [email]);
     if (!member) return res.render('member/login', { error: 'Member not found.', step: 'email', email: '' });
+    const pwErrors = validatePassword(password);
+    if (pwErrors.length > 0) {
+      return res.render('member/login', { error: 'Password does not meet requirements: ' + pwErrors.join(', '), step: 'create_password', email, memberId: member.id, memberName: member.name });
+    }
     const hash = bcrypt.hashSync(password, 10);
     run('UPDATE members SET password_hash = ? WHERE id = ?', [hash, member.id]);
     req.session.member = { id: member.id, name: member.name, email: member.email };
@@ -52,6 +65,27 @@ router.get('/auth', (req, res) => {
   const member = get('SELECT * FROM members WHERE id = ?', [link.member_id]);
   if (!member) return res.redirect('/member/login');
   req.session.member = { id: member.id, name: member.name, email: member.email };
+  if (!member.password_hash) {
+    return res.redirect('/member/setup-password');
+  }
+  res.redirect('/member/portal');
+});
+
+router.get('/setup-password', requireMember, (req, res) => {
+  res.render('member/setup-password', { member: req.session.member, error: null, errors: [] });
+});
+
+router.post('/setup-password', requireMember, (req, res) => {
+  const { password, password_confirm } = req.body;
+  const errors = validatePassword(password);
+  if (errors.length > 0) {
+    return res.render('member/setup-password', { member: req.session.member, error: null, errors });
+  }
+  if (password !== password_confirm) {
+    return res.render('member/setup-password', { member: req.session.member, error: 'Passwords do not match.', errors: [] });
+  }
+  const hash = bcrypt.hashSync(password, 10);
+  run('UPDATE members SET password_hash = ? WHERE id = ?', [hash, req.session.member.id]);
   res.redirect('/member/portal');
 });
 
@@ -390,6 +424,10 @@ router.post('/profile', requireMember, (req, res) => {
   run('UPDATE members SET phone=?, notify_email=?, notify_sms=? WHERE id=?',
     [phone || null, notify_email ? 1 : 0, notify_sms ? 1 : 0, req.session.member.id]);
   if (new_password) {
+    const pwErrors = validatePassword(new_password);
+    if (pwErrors.length > 0) {
+      return res.redirect('/member/profile?error=' + encodeURIComponent('Password does not meet requirements: ' + pwErrors.join(', ')));
+    }
     run('UPDATE members SET password_hash = ? WHERE id = ?',
       [bcrypt.hashSync(new_password, 10), req.session.member.id]);
   }

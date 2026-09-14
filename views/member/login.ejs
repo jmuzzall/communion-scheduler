@@ -23,12 +23,22 @@
 
     <% } else if (step === 'create_password') { %>
       <p class="text-muted">Welcome, <strong><%= memberName %></strong>! Create a password for your account.</p>
+      <div class="alert alert-light border mb-3">
+        <strong class="d-block mb-1"><i class="bi bi-info-circle"></i> Password Requirements</strong>
+        <ul class="mb-0 small" style="padding-left:1.2rem;">
+          <li>At least 8 characters long</li>
+          <li>At least one uppercase letter (A-Z)</li>
+          <li>At least one lowercase letter (a-z)</li>
+          <li>At least one number (0-9)</li>
+        </ul>
+        <p class="mb-0 mt-2 small text-muted"><strong>Tip:</strong> Use a phrase you can remember, like <em>Sunday4Communion</em></p>
+      </div>
       <form method="POST" action="/member/login">
         <input type="hidden" name="step" value="create_password">
         <input type="hidden" name="email" value="<%= email %>">
         <div class="mb-3">
           <label class="form-label fw-500">Create Password</label>
-          <input type="password" name="password" class="form-control" required minlength="6" autofocus>
+          <input type="password" name="password" class="form-control" required minlength="8" autofocus>
         </div>
         <button type="submit" class="btn btn-gold w-100">Create Account & Sign In</button>
       </form>

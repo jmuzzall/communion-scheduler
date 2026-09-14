@@ -10,6 +10,9 @@
     <div class="d-flex gap-2">
       <button class="btn btn-gold" data-bs-toggle="modal" data-bs-target="#addModal"><i class="bi bi-plus-lg"></i> Add Member</button>
       <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importModal"><i class="bi bi-upload"></i> Import CSV</button>
+      <form method="POST" action="/admin/roster/send-magic-links-all" class="d-inline" onsubmit="return confirm('Send a magic login link to all members on the roster?')">
+        <button class="btn btn-outline-primary"><i class="bi bi-link-45deg"></i> Send Login Links to All</button>
+      </form>
     </div>
   </div>
 
@@ -32,9 +35,12 @@
                 <% if (m.notify_sms) { %><i class="bi bi-phone-fill text-muted" title="SMS"></i> <% } %>
               </td>
               <td>
-                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal<%= m.id %>"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal<%= m.id %>" title="Edit"><i class="bi bi-pencil"></i></button>
+                <form method="POST" action="/admin/roster/send-magic-link/<%= m.id %>" class="d-inline">
+                  <button class="btn btn-sm btn-outline-primary" title="Send login link"><i class="bi bi-link-45deg"></i></button>
+                </form>
                 <form method="POST" action="/admin/roster/delete/<%= m.id %>" class="d-inline">
-                  <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this member?')"><i class="bi bi-trash"></i></button>
+                  <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remove this member?')" title="Delete"><i class="bi bi-trash"></i></button>
                 </form>
               </td>
             </tr>
