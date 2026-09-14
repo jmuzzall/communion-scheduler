@@ -460,21 +460,31 @@ router.post('/settings/change-password', requireAdmin, (req, res) => {
 });
 
 router.post('/settings/invite-admin', requireAdmin, async (req, res) => {
-  const { name, email } = req.body;
-  const hash = bcrypt.hashSync(uuidv4(), 10);
+  const { name, email, password } = req.body;
   try {
-    run('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)', [name, email, hash]);
-    const admin = get('SELECT * FROM admins WHERE email = ?', [email]);
-    const token = uuidv4();
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    run('INSERT INTO admin_invite_tokens (admin_id, token, expires_at) VALUES (?,?,?)', [admin.id, token, expires]);
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
-    const link = `${appUrl}/admin/setup/${token}`;
-    await sendEmail(email, 'You\'ve been invited as a Communion Scheduler Admin',
-      `<p>Hi ${name},</p><p>You've been added as an administrator for the McLean Presbyterian Church Communion Server Scheduler.</p><p>Click the link below to set your password and activate your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Set Up Your Admin Account</a></p><p>This link expires in 7 days.</p>`,
-      `Hi ${name}, you've been invited as a Communion Scheduler admin. Set up your account here: ${link} (expires in 7 days)`
-    );
-    res.redirect('/admin/settings?success=' + encodeURIComponent(`Admin invite sent to ${name} at ${email}`));
+    if (password) {
+      const pwErrors = validatePassword(password);
+      if (pwErrors.length > 0) {
+        return res.redirect('/admin/settings?error=' + encodeURIComponent('Password does not meet requirements: ' + pwErrors.join(', ')));
+      }
+      const hash = bcrypt.hashSync(password, 10);
+      run('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)', [name, email, hash]);
+      res.redirect('/admin/settings?success=' + encodeURIComponent(`Admin ${name} added with password — they can log in now`));
+    } else {
+      const hash = bcrypt.hashSync(uuidv4(), 10);
+      run('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)', [name, email, hash]);
+      const admin = get('SELECT * FROM admins WHERE email = ?', [email]);
+      const token = uuidv4();
+      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      run('INSERT INTO admin_invite_tokens (admin_id, token, expires_at) VALUES (?,?,?)', [admin.id, token, expires]);
+      const appUrl = process.env.APP_URL || 'http://localhost:3000';
+      const link = `${appUrl}/admin/setup/${token}`;
+      await sendEmail(email, 'You\'ve been invited as a Communion Scheduler Admin',
+        `<p>Hi ${name},</p><p>You've been added as an administrator for the McLean Presbyterian Church Communion Server Scheduler.</p><p>Click the link below to set your password and activate your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Set Up Your Admin Account</a></p><p>This link expires in 7 days.</p>`,
+        `Hi ${name}, you've been invited as a Communion Scheduler admin. Set up your account here: ${link} (expires in 7 days)`
+      );
+      res.redirect('/admin/settings?success=' + encodeURIComponent(`Admin invite sent to ${name} at ${email}`));
+    }
   } catch (e) {
     res.redirect('/admin/settings?error=' + encodeURIComponent(e.message));
   }
