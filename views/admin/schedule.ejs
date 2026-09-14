@@ -27,6 +27,15 @@
         </form>
       <% } %>
       <a href="/admin/schedule/export?date_id=<%= selected.id %>" class="btn btn-outline-primary"><i class="bi bi-file-earmark-excel"></i> Export to Excel</a>
+      <% if (selected.status === 'upcoming') { %>
+        <form method="POST" action="/admin/open-signups/<%= selected.id %>" class="d-inline">
+          <button class="btn btn-outline-success"><i class="bi bi-unlock"></i> Open Signups</button>
+        </form>
+      <% } else if (selected.status === 'signup_open') { %>
+        <form method="POST" action="/admin/open-signups/<%= selected.id %>" class="d-inline">
+          <button class="btn btn-outline-warning"><i class="bi bi-lock"></i> Close Signups</button>
+        </form>
+      <% } %>
     </div>
 
     <div class="row g-4">

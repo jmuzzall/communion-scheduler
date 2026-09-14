@@ -356,6 +356,14 @@ router.post('/trigger-reminders', requireAdmin, async (req, res) => {
   res.redirect('/admin/dashboard?success=Reminder check triggered');
 });
 
+router.post('/open-signups/:dateId', requireAdmin, (req, res) => {
+  const cd = get('SELECT * FROM communion_dates WHERE id = ?', [req.params.dateId]);
+  if (!cd) return res.redirect('/admin/schedule?error=Date not found');
+  const newStatus = cd.status === 'upcoming' ? 'signup_open' : 'upcoming';
+  run('UPDATE communion_dates SET status = ? WHERE id = ?', [newStatus, cd.id]);
+  res.redirect(`/admin/schedule?date_id=${cd.id}&success=Status changed to ${newStatus}`);
+});
+
 router.get('/settings', requireAdmin, (req, res) => {
   const slots = all('SELECT * FROM slot_config ORDER BY sort_order');
   const admins = all('SELECT id, name, email, is_super FROM admins ORDER BY name');
