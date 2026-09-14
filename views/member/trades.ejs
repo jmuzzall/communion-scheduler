@@ -1,0 +1,46 @@
+<%- include('../partials/head', { title: 'Trades' }) %>
+<%- include('../partials/member-navbar', { page: 'trades' }) %>
+
+<div class="container mt-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <h2 class="mb-4">Slot Trades</h2>
+
+  <% if (trades.length > 0) { %>
+    <% trades.forEach(t => { %>
+    <div class="card border-0 shadow-sm mb-3 trade-<%= t.status %>">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <p class="text-muted small mb-1"><%= formatDate(t.communion_date) %></p>
+            <p class="mb-1"><strong><%= t.requester_name %>:</strong> <%= t.req_service %> — <%= t.req_location %><%= t.req_area ? ' (' + t.req_area + ')' : '' %></p>
+            <p class="mb-0"><strong><%= t.target_name %>:</strong> <%= t.tgt_service %> — <%= t.tgt_location %><%= t.tgt_area ? ' (' + t.tgt_area + ')' : '' %></p>
+            <% if (t.message) { %><p class="mt-1 mb-0 text-muted small"><i class="bi bi-chat-left-text"></i> <%= t.message %></p><% } %>
+          </div>
+          <div class="text-end">
+            <span class="badge bg-<%= t.status === 'pending' ? 'warning text-dark' : t.status === 'accepted' ? 'success' : t.status === 'declined' ? 'danger' : 'secondary' %> mb-2"><%= t.status %></span>
+            <% if (t.status === 'pending' && t.target_id === member.id) { %>
+              <div class="d-flex gap-1 mt-1">
+                <form method="POST" action="/member/trade/<%= t.id %>/accept"><button class="btn btn-sm btn-success">Accept</button></form>
+                <form method="POST" action="/member/trade/<%= t.id %>/decline"><button class="btn btn-sm btn-outline-danger">Decline</button></form>
+              </div>
+            <% } else if (t.status === 'pending' && t.requester_id === member.id) { %>
+              <form method="POST" action="/member/trade/<%= t.id %>/cancel" class="mt-1">
+                <button class="btn btn-sm btn-outline-secondary">Cancel</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+  <% } else { %>
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-arrow-left-right" style="font-size:3rem;"></i>
+      <p class="mt-2">No trades. You can propose a trade from your assignment on the My Schedule page.</p>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

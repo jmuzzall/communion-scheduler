@@ -1,0 +1,32 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/admin/dashboard">Communion Admin</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="adminNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link <%= typeof page !== 'undefined' && page === 'dashboard' ? 'active' : '' %>" href="/admin/dashboard">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link <%= typeof page !== 'undefined' && page === 'schedule' ? 'active' : '' %>" href="/admin/schedule">Schedule</a></li>
+        <li class="nav-item"><a class="nav-link <%= typeof page !== 'undefined' && page === 'roster' ? 'active' : '' %>" href="/admin/roster">Roster</a></li>
+        <li class="nav-item"><a class="nav-link <%= typeof page !== 'undefined' && page === 'fairness' ? 'active' : '' %>" href="/admin/fairness">Fairness</a></li>
+        <li class="nav-item"><a class="nav-link <%= typeof page !== 'undefined' && page === 'history' ? 'active' : '' %>" href="/admin/history">History</a></li>
+        <li class="nav-item"><a class="nav-link <%= typeof page !== 'undefined' && page === 'trades' ? 'active' : '' %>" href="/admin/trades">Trades</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle <%= typeof page !== 'undefined' && ['templates','notifications','send-reminder','settings'].includes(page) ? 'active' : '' %>" href="#" data-bs-toggle="dropdown">More</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/admin/templates">Message Templates</a></li>
+            <li><a class="dropdown-item" href="/admin/send-reminder">Send Reminder</a></li>
+            <li><a class="dropdown-item" href="/admin/notifications">Notification Log</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/admin/settings">Settings</a></li>
+          </ul>
+        </li>
+      </ul>
+      <ul class="navbar-nav">
+        <li class="nav-item"><span class="nav-link text-light opacity-75"><%= admin.email %></span></li>
+        <li class="nav-item"><a class="nav-link" href="/admin/logout">Logout</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>

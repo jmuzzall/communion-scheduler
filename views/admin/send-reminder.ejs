@@ -1,0 +1,54 @@
+<%- include('../partials/head', { title: 'Send Reminder' }) %>
+<%- include('../partials/admin-navbar', { page: 'send-reminder' }) %>
+
+<div class="container mt-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <h2 class="mb-4">Send Custom Reminder</h2>
+
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <form method="POST" action="/admin/send-reminder">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Recipients</label>
+              <select name="recipients" class="form-select" required>
+                <option value="all">All Members</option>
+                <option value="active_elder">Active Elders</option>
+                <option value="active_deacon">Active Deacons</option>
+                <option value="inactive_elder">Inactive Elders</option>
+                <option value="inactive_deacon">Inactive Deacons</option>
+                <optgroup label="Individual Members">
+                  <% members.forEach(m => { %>
+                    <option value="<%= m.id %>"><%= m.name %> (<%= m.email %>)</option>
+                  <% }) %>
+                </optgroup>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Related Communion Date (optional)</label>
+              <select name="communion_date_id" class="form-select">
+                <option value="">— None —</option>
+                <% communionDates.forEach(cd => { %>
+                  <option value="<%= cd.id %>"><%= formatDate(cd.date) %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Subject</label>
+              <input type="text" name="subject" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Message</label>
+              <textarea name="message" class="form-control" rows="6" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-gold"><i class="bi bi-send"></i> Send</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

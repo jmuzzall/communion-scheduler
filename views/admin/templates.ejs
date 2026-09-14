@@ -1,0 +1,43 @@
+<%- include('../partials/head', { title: 'Message Templates' }) %>
+<%- include('../partials/admin-navbar', { page: 'templates' }) %>
+
+<div class="container mt-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <h2 class="mb-4">Notification Templates</h2>
+  <p class="text-muted">Customize the text of automated notifications. Use <code>{{variable}}</code> placeholders for dynamic content.</p>
+
+  <div class="accordion" id="templateAccordion">
+    <% templates.forEach((t, i) => { %>
+    <div class="accordion-item border-0 shadow-sm mb-3" style="border-radius:10px;overflow:hidden;">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tmpl<%= t.id %>">
+          <strong><%= t.template_key %></strong>
+          <span class="text-muted ms-3 small"><%= t.description || '' %></span>
+        </button>
+      </h2>
+      <div id="tmpl<%= t.id %>" class="accordion-collapse collapse" data-bs-parent="#templateAccordion">
+        <div class="accordion-body">
+          <form method="POST" action="/admin/templates/edit/<%= t.id %>">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Subject Line</label>
+              <input type="text" name="subject" class="form-control" value="<%= t.subject %>" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">HTML Body</label>
+              <textarea name="body_html" class="form-control" rows="6" style="font-family:monospace;font-size:0.85rem;"><%= t.body_html %></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Plain Text Body</label>
+              <textarea name="body_text" class="form-control" rows="4" style="font-family:monospace;font-size:0.85rem;"><%= t.body_text %></textarea>
+            </div>
+            <button type="submit" class="btn btn-gold">Save Template</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <% }) %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

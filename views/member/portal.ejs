@@ -1,0 +1,55 @@
+<%- include('../partials/head', { title: 'My Schedule' }) %>
+<%- include('../partials/member-navbar', { page: 'portal' }) %>
+
+<div class="container mt-4">
+  <h2 class="mb-4">Welcome, <%= member.name %></h2>
+
+  <% if (pendingTrades.length > 0) { %>
+    <div class="alert alert-warning">
+      <i class="bi bi-arrow-left-right"></i> You have <strong><%= pendingTrades.length %></strong> pending trade request(s).
+      <a href="/member/trades" class="alert-link">Review trades</a>
+    </div>
+  <% } %>
+
+  <% if (openSignups.length > 0) { %>
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-pen"></i> Open for Signup</h5></div>
+      <div class="card-body">
+        <% openSignups.forEach(cd => { %>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span><strong><%= formatDate(cd.date) %></strong></span>
+            <a href="/member/signup/<%= cd.id %>" class="btn btn-sm btn-gold">Sign Up</a>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white"><h5 class="mb-0"><i class="bi bi-calendar-check"></i> My Upcoming Assignments</h5></div>
+    <div class="card-body">
+      <% if (assignments.length > 0) { %>
+        <% assignments.forEach(a => { %>
+          <div class="assignment-card">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h6 class="mb-1"><%= formatDate(a.date) %></h6>
+                <p class="mb-0"><strong><%= a.service_time %></strong> &mdash; <%= a.location %><%= a.area ? ' (' + a.area + ')' : '' %></p>
+              </div>
+              <div class="text-end">
+                <span class="badge badge-<%= a.assignment_type %>"><%= a.assignment_type %></span>
+                <% if (a.cd_status !== 'completed') { %>
+                  <br><a href="/member/propose-trade/<%= a.id %>" class="btn btn-sm btn-outline-primary mt-1">Propose Trade</a>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <p class="text-muted mb-0">No upcoming assignments. Check back when the signup window opens.</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

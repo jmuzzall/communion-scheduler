@@ -1,0 +1,48 @@
+<%- include('../partials/head', { title: 'History' }) %>
+<%- include('../partials/admin-navbar', { page: 'history' }) %>
+
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Historical Schedules</h2>
+    <% if (selected) { %>
+      <a href="/admin/schedule/export?date_id=<%= selected.id %>" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-excel"></i> Export</a>
+    <% } %>
+  </div>
+
+  <% if (completed.length > 0) { %>
+    <form method="GET" class="mb-4" style="max-width:300px;">
+      <select name="date_id" class="form-select" onchange="this.form.submit()">
+        <% completed.forEach(cd => { %>
+          <option value="<%= cd.id %>" <%= selected && selected.id === cd.id ? 'selected' : '' %>><%= formatDate(cd.date) %></option>
+        <% }) %>
+      </select>
+    </form>
+
+    <% if (selected) { %>
+      <div class="row g-4">
+        <% schedule.forEach(item => { %>
+        <div class="col-lg-6 col-xl-4">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-navy">
+              <strong><%= item.slot.service_time %></strong> &mdash; <%= item.slot.location %><%= item.slot.area ? ' (' + item.slot.area + ')' : '' %>
+            </div>
+            <div class="card-body">
+              <% item.assigned.forEach(a => { %>
+                <div class="slot-badge"><%= a.name %> <span class="badge bg-<%= a.assignment_type === 'voluntary' ? 'success' : a.assignment_type === 'auto' ? 'warning text-dark' : 'info' %> ms-1" style="font-size:0.65rem;"><%= a.assignment_type %></span></div>
+              <% }) %>
+              <% if (item.assigned.length === 0) { %><p class="text-muted mb-0">No assignments</p><% } %>
+            </div>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+    <% } %>
+  <% } else { %>
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-clock-history" style="font-size:3rem;"></i>
+      <p class="mt-2">No completed communion dates yet.</p>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

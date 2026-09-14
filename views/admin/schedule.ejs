@@ -1,0 +1,91 @@
+<%- include('../partials/head', { title: 'Schedule' }) %>
+<%- include('../partials/admin-navbar', { page: 'schedule' }) %>
+
+<div class="container-fluid mt-4 px-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">Communion Schedule</h2>
+    <div class="d-flex gap-2">
+      <form method="GET" action="/admin/schedule" class="d-flex gap-2">
+        <select name="date_id" class="form-select" style="max-width:280px;" onchange="this.form.submit()">
+          <% communionDates.forEach(cd => { %>
+            <option value="<%= cd.id %>" <%= selected && selected.id === cd.id ? 'selected' : '' %>><%= formatDate(cd.date) %> (<%= cd.status %>)</option>
+          <% }) %>
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <% if (selected) { %>
+    <div class="d-flex flex-wrap gap-2 mb-4">
+      <% if (selected.status === 'signup_open' || selected.status === 'upcoming') { %>
+        <form method="POST" action="/admin/schedule/auto-assign/<%= selected.id %>">
+          <label class="form-check-label me-2"><input type="checkbox" name="notify" class="form-check-input" checked> Notify members</label>
+          <button class="btn btn-gold"><i class="bi bi-magic"></i> Auto-Assign Remaining</button>
+        </form>
+      <% } %>
+      <a href="/admin/schedule/export?date_id=<%= selected.id %>" class="btn btn-outline-primary"><i class="bi bi-file-earmark-excel"></i> Export to Excel</a>
+    </div>
+
+    <div class="row g-4">
+      <% schedule.forEach(item => { %>
+      <div class="col-lg-6 col-xl-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-header bg-navy">
+            <strong><%= item.slot.service_time %></strong> &mdash; <%= item.slot.location %><%= item.slot.area ? ' (' + item.slot.area + ')' : '' %>
+          </div>
+          <div class="card-body">
+            <p class="mb-2 text-muted"><%= item.filled %> / <%= item.needed %> filled</p>
+            <div class="progress mb-3" style="height:6px;">
+              <div class="progress-bar" style="width:<%= (item.filled/item.needed*100) %>%;background:var(--mp-gold);"></div>
+            </div>
+            <% item.assigned.forEach(a => { %>
+              <div class="slot-badge">
+                <%= a.name %>
+                <span class="badge bg-<%= a.assignment_type === 'voluntary' ? 'success' : a.assignment_type === 'auto' ? 'warning text-dark' : 'info' %> ms-1" style="font-size:0.65rem;"><%= a.assignment_type %></span>
+                <form method="POST" action="/admin/schedule/unassign/<%= a.id %>" class="d-inline">
+                  <button class="btn btn-link btn-sm text-danger p-0 ms-1" title="Remove" onclick="return confirm('Remove this assignment?')"><i class="bi bi-x-circle"></i></button>
+                </form>
+              </div>
+            <% }) %>
+            <% if (item.filled < item.needed) { %>
+              <form method="POST" action="/admin/schedule/assign" class="mt-2">
+                <input type="hidden" name="communion_date_id" value="<%= selected.id %>">
+                <input type="hidden" name="slot_config_id" value="<%= item.slot.id %>">
+                <div class="input-group input-group-sm">
+                  <select name="member_id" class="form-select form-select-sm" required>
+                    <option value="">Add member...</option>
+                  </select>
+                  <button class="btn btn-sm btn-gold">Add</button>
+                </div>
+              </form>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-calendar-x" style="font-size:3rem;"></i>
+      <p class="mt-2">No communion dates found. Generate dates from the dashboard.</p>
+    </div>
+  <% } %>
+</div>
+
+<script>
+document.querySelectorAll('select[name="member_id"]').forEach(async sel => {
+  const assigned = new Set();
+  document.querySelectorAll('.slot-badge').forEach(b => {
+    const name = b.textContent.trim().split('\n')[0].trim();
+    assigned.add(name);
+  });
+  try {
+    const res = await fetch('/admin/roster?format=json');
+  } catch(e) {}
+});
+</script>
+
+<%- include('../partials/footer') %>

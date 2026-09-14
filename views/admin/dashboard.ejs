@@ -1,0 +1,102 @@
+<%- include('../partials/head', { title: 'Admin Dashboard' }) %>
+<%- include('../partials/admin-navbar', { page: 'dashboard' }) %>
+
+<div class="container mt-4">
+  <% if (typeof success !== 'undefined' && success) { %>
+    <div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+  <% } %>
+
+  <h2 class="mb-4">Dashboard</h2>
+
+  <div class="row g-4 mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center">
+          <div style="font-size:2rem;color:var(--mp-navy);"><i class="bi bi-people"></i></div>
+          <h3 class="h2 mb-0"><%= totalMembers %></h3>
+          <p class="text-muted mb-0">Roster Members</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center">
+          <div style="font-size:2rem;color:var(--mp-gold);"><i class="bi bi-calendar-check"></i></div>
+          <h3 class="h2 mb-0"><%= totalSlots %></h3>
+          <p class="text-muted mb-0">Slots Per Sunday</p>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center">
+          <div style="font-size:2rem;color:var(--mp-navy);"><i class="bi bi-calendar-range"></i></div>
+          <h3 class="h2 mb-0"><%= stats.length %></h3>
+          <p class="text-muted mb-0">Upcoming Dates</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white"><h5 class="mb-0">Upcoming Communion Sundays</h5></div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr><th>Date</th><th>Status</th><th>Filled</th><th>Trades</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <% stats.forEach(s => { %>
+            <tr>
+              <td><strong><%= s.dateFormatted %></strong></td>
+              <td>
+                <% if (s.status === 'upcoming') { %><span class="badge bg-secondary">Upcoming</span>
+                <% } else if (s.status === 'signup_open') { %><span class="badge bg-warning text-dark">Signup Open</span>
+                <% } else if (s.status === 'assigned') { %><span class="badge bg-success">Assigned</span>
+                <% } else { %><span class="badge bg-dark">Completed</span><% } %>
+              </td>
+              <td><%= s.filled %> / <%= s.total %></td>
+              <td><% if (s.pendingTrades > 0) { %><span class="badge bg-warning text-dark"><%= s.pendingTrades %> pending</span><% } else { %>—<% } %></td>
+              <td><a href="/admin/schedule?date_id=<%= s.id %>" class="btn btn-sm btn-outline-primary">View</a></td>
+            </tr>
+            <% }) %>
+            <% if (stats.length === 0) { %>
+            <tr><td colspan="5" class="text-muted text-center py-3">No upcoming communion dates. Generate dates below.</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h5>Generate Communion Dates</h5>
+          <form method="POST" action="/admin/schedule/generate-dates" class="d-flex gap-2">
+            <input type="number" name="year" class="form-control" value="<%= new Date().getFullYear() %>" style="max-width:120px;">
+            <button class="btn btn-gold">Generate</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <h5>Quick Actions</h5>
+          <div class="d-flex flex-wrap gap-2">
+            <a href="/admin/roster" class="btn btn-outline-primary btn-sm"><i class="bi bi-people"></i> Manage Roster</a>
+            <a href="/admin/send-reminder" class="btn btn-outline-primary btn-sm"><i class="bi bi-envelope"></i> Send Reminder</a>
+            <form method="POST" action="/admin/trigger-reminders" class="d-inline">
+              <button class="btn btn-outline-primary btn-sm"><i class="bi bi-arrow-repeat"></i> Run Reminder Check</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

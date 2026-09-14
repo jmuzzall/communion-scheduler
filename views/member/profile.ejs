@@ -1,0 +1,53 @@
+<%- include('../partials/head', { title: 'Profile' }) %>
+<%- include('../partials/member-navbar', { page: 'profile' }) %>
+
+<div class="container mt-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <h2 class="mb-4">My Profile</h2>
+
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <form method="POST" action="/member/profile">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Name</label>
+              <input type="text" class="form-control" value="<%= member.name %>" disabled>
+              <div class="form-text">Contact an administrator to change your name.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Email</label>
+              <input type="email" class="form-control" value="<%= member.email %>" disabled>
+              <div class="form-text">Contact an administrator to change your email.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Phone</label>
+              <input type="text" name="phone" class="form-control" value="<%= member.phone || '' %>" placeholder="(555) 123-4567">
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Notification Preferences</label>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="notify_email" value="1" <%= member.notify_email ? 'checked' : '' %>>
+                <label class="form-check-label">Email notifications</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="notify_sms" value="1" <%= member.notify_sms ? 'checked' : '' %>>
+                <label class="form-check-label">SMS text notifications</label>
+              </div>
+            </div>
+            <hr>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Change Password (optional)</label>
+              <input type="password" name="new_password" class="form-control" minlength="6" placeholder="Leave blank to keep current">
+            </div>
+            <button type="submit" class="btn btn-gold">Save Profile</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

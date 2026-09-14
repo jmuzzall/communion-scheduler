@@ -1,0 +1,46 @@
+<%- include('../partials/head', { title: 'Propose Trade' }) %>
+<%- include('../partials/member-navbar', { page: 'trades' }) %>
+
+<div class="container mt-4">
+  <h2 class="mb-1">Propose a Trade</h2>
+  <p class="text-muted mb-4"><%= formatDate(myAssignment.date) %></p>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white"><h5 class="mb-0">Your Current Assignment</h5></div>
+    <div class="card-body">
+      <div class="assignment-card">
+        <strong><%= myAssignment.service_time %></strong> &mdash; <%= myAssignment.location %><%= myAssignment.area ? ' (' + myAssignment.area + ')' : '' %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white"><h5 class="mb-0">Select Someone to Trade With</h5></div>
+    <div class="card-body">
+      <% if (otherAssignments.length > 0) { %>
+        <% otherAssignments.forEach(a => { %>
+        <form method="POST" action="/member/propose-trade" class="border-bottom py-3">
+          <input type="hidden" name="my_assignment_id" value="<%= myAssignment.id %>">
+          <input type="hidden" name="target_assignment_id" value="<%= a.id %>">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <strong><%= a.name %></strong>
+              <div class="text-muted small"><%= a.service_time %> — <%= a.location %><%= a.area ? ' (' + a.area + ')' : '' %></div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <input type="text" name="message" class="form-control form-control-sm" placeholder="Optional message..." style="max-width:200px;">
+              <button class="btn btn-sm btn-gold">Propose</button>
+            </div>
+          </div>
+        </form>
+        <% }) %>
+      <% } else { %>
+        <p class="text-muted">No other assigned members to trade with.</p>
+      <% } %>
+    </div>
+  </div>
+
+  <a href="/member/portal" class="btn btn-outline-primary mt-3"><i class="bi bi-arrow-left"></i> Back</a>
+</div>
+
+<%- include('../partials/footer') %>

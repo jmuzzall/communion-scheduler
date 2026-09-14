@@ -1,0 +1,70 @@
+<%- include('../partials/head', { title: 'Settings' }) %>
+<%- include('../partials/admin-navbar', { page: 'settings' }) %>
+
+<div class="container mt-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <h2 class="mb-4">Settings</h2>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><h5 class="mb-0">Slot Configuration</h5></div>
+        <div class="card-body p-0">
+          <table class="table mb-0">
+            <thead><tr><th>Service</th><th>Location</th><th>Area</th><th>Servers</th></tr></thead>
+            <tbody>
+              <% slots.forEach(s => { %>
+              <tr>
+                <td><%= s.service_time %></td>
+                <td><%= s.location %></td>
+                <td><%= s.area || '—' %></td>
+                <td>
+                  <form method="POST" action="/admin/settings/slot/edit/<%= s.id %>" class="d-flex gap-1">
+                    <input type="number" name="servers_needed" class="form-control form-control-sm" value="<%= s.servers_needed %>" style="width:60px;" min="1">
+                    <button class="btn btn-sm btn-gold">Save</button>
+                  </form>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white"><h5 class="mb-0">Change Admin Password</h5></div>
+        <div class="card-body">
+          <form method="POST" action="/admin/settings/change-password">
+            <div class="mb-3"><label class="form-label">Current Password</label><input type="password" name="current_password" class="form-control" required></div>
+            <div class="mb-3"><label class="form-label">New Password</label><input type="password" name="new_password" class="form-control" required minlength="6"></div>
+            <button class="btn btn-gold">Change Password</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><h5 class="mb-0">Admin Accounts</h5></div>
+        <div class="card-body">
+          <% admins.forEach(a => { %>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div><strong><%= a.name %></strong> <span class="text-muted small">(<%= a.email %>)</span></div>
+              <% if (a.is_super) { %><span class="badge bg-dark">Super</span><% } %>
+            </div>
+          <% }) %>
+          <hr>
+          <form method="POST" action="/admin/settings/invite-admin" class="d-flex gap-2 flex-wrap">
+            <input type="text" name="name" class="form-control form-control-sm" placeholder="Name" required style="max-width:140px;">
+            <input type="email" name="email" class="form-control form-control-sm" placeholder="Email" required style="max-width:200px;">
+            <button class="btn btn-sm btn-gold">Add Admin</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,110 @@
+<%- include('../partials/head', { title: 'Sign Up' }) %>
+<%- include('../partials/member-navbar', { page: 'portal' }) %>
+
+<div class="container mt-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
+
+  <h2 class="mb-1">Communion Signup</h2>
+  <p class="text-muted mb-4"><%= formatDate(cd.date) %></p>
+
+  <% if (existingAssignment) { %>
+    <div class="alert alert-info">
+      <i class="bi bi-check-circle"></i> You are signed up for this date.
+      <% const mySlot = slots.find(s => s.id === existingAssignment.slot_config_id); %>
+      <% if (mySlot) { %>
+        <strong><%= mySlot.service_time %> — <%= mySlot.location %><%= mySlot.area ? ' (' + mySlot.area + ')' : '' %></strong>
+      <% } %>
+      <form method="POST" action="/member/signup/<%= cd.id %>/withdraw" class="d-inline">
+        <button class="btn btn-sm btn-outline-danger ms-2">Withdraw</button>
+      </form>
+    </div>
+  <% } %>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <h5>Available Slots</h5>
+      <% slots.forEach(slot => { %>
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="mb-0"><%= slot.service_time %> — <%= slot.location %><%= slot.area ? ' (' + slot.area + ')' : '' %></h6>
+                <small class="text-muted"><%= slot.filled %> / <%= slot.servers_needed %> filled</small>
+              </div>
+              <% if (!existingAssignment && slot.available > 0) { %>
+                <form method="POST" action="/member/signup/<%= cd.id %>/claim">
+                  <input type="hidden" name="slot_config_id" value="<%= slot.id %>">
+                  <button class="btn btn-sm btn-gold">Sign Up</button>
+                </form>
+              <% } else if (slot.available <= 0) { %>
+                <span class="badge bg-secondary">Full</span>
+              <% } %>
+            </div>
+            <% if (slot.assigned.length > 0) { %>
+              <div class="mt-2">
+                <% slot.assigned.forEach(a => { %>
+                  <span class="slot-badge"><%= a.name %></span>
+                <% }) %>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+
+    <div class="col-lg-4">
+      <h5>Availability Exclusions</h5>
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <% if (existingExclusions.length > 0) { %>
+            <p class="text-muted small mb-2">Current exclusions:</p>
+            <% existingExclusions.forEach(ex => { %>
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small">
+                  <% if (ex.exclusion_type === 'full_day') { %>
+                    <i class="bi bi-x-circle text-danger"></i> Unavailable all day
+                  <% } else { %>
+                    <i class="bi bi-dash-circle text-warning"></i> <%= ex.exclusion_value %>
+                  <% } %>
+                </span>
+                <form method="POST" action="/member/signup/<%= cd.id %>/remove-exclusion/<%= ex.id %>">
+                  <button class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
+                </form>
+              </div>
+            <% }) %>
+            <hr>
+          <% } %>
+
+          <% if (!existingAssignment) { %>
+            <p class="text-muted small">Mark unavailability:</p>
+            <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-2">
+              <input type="hidden" name="exclusion_type" value="full_day">
+              <button class="btn btn-sm btn-outline-danger w-100">Unavailable All Day</button>
+            </form>
+
+            <p class="text-muted small mt-3 mb-1">Exclude a service time:</p>
+            <% serviceTimes.forEach(st => { %>
+              <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-1">
+                <input type="hidden" name="exclusion_type" value="service_time">
+                <input type="hidden" name="exclusion_value" value="<%= st %>">
+                <button class="btn btn-sm btn-outline-warning w-100"><%= st %></button>
+              </form>
+            <% }) %>
+
+            <p class="text-muted small mt-3 mb-1">Exclude a location:</p>
+            <% locations.forEach(loc => { %>
+              <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-1">
+                <input type="hidden" name="exclusion_type" value="location">
+                <input type="hidden" name="exclusion_value" value="<%= loc %>">
+                <button class="btn btn-sm btn-outline-warning w-100"><%= loc %></button>
+              </form>
+            <% }) %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,35 @@
+<%- include('../partials/head', { title: 'Fairness Report' }) %>
+<%- include('../partials/admin-navbar', { page: 'fairness' }) %>
+
+<div class="container mt-4">
+  <h2 class="mb-4">Fairness Report <small class="text-muted fs-6">(12-month rolling)</small></h2>
+
+  <% const maxCount = Math.max(1, ...counts.map(c => c.service_count)); %>
+  <% const groups = {}; counts.forEach(c => { const cat = c.category; if (!groups[cat]) groups[cat] = []; groups[cat].push(c); }); %>
+
+  <% Object.entries(groups).forEach(([cat, members]) => { %>
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-navy"><%= formatCategory(cat) %></div>
+      <div class="card-body">
+        <% members.forEach(m => { %>
+        <div class="d-flex align-items-center mb-2">
+          <div style="min-width:160px;" class="me-3"><strong><%= m.name %></strong></div>
+          <div class="flex-grow-1 me-3">
+            <div class="fairness-bar" style="width:<%= (m.service_count / maxCount * 100) %>%;"></div>
+          </div>
+          <div style="min-width:40px;" class="text-end fw-bold"><%= m.service_count %></div>
+        </div>
+        <% }) %>
+      </div>
+    </div>
+  <% }) %>
+
+  <% if (counts.length === 0) { %>
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-bar-chart" style="font-size:3rem;"></i>
+      <p class="mt-2">No assignment data yet.</p>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

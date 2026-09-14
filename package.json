@@ -1,0 +1,27 @@
+{
+  "name": "communion-scheduler",
+  "version": "1.0.0",
+  "description": "Communion server scheduling system for McLean Presbyterian Church",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.7",
+    "ejs": "^3.1.10",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.16",
+    "sql.js": "^1.11.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

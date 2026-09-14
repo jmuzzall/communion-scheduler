@@ -1,0 +1,32 @@
+<%- include('../partials/head', { title: 'Trades' }) %>
+<%- include('../partials/admin-navbar', { page: 'trades' }) %>
+
+<div class="container mt-4">
+  <h2 class="mb-4">Slot Trades</h2>
+
+  <% if (trades.length > 0) { %>
+    <% trades.forEach(t => { %>
+    <div class="card border-0 shadow-sm mb-3 trade-<%= t.status %>">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6 class="mb-1"><%= t.requester_name %> <i class="bi bi-arrow-left-right text-muted"></i> <%= t.target_name %></h6>
+            <p class="text-muted small mb-1"><%= formatDate(t.communion_date) %></p>
+            <p class="mb-1"><strong><%= t.requester_name %>:</strong> <%= t.req_service %> — <%= t.req_location %><%= t.req_area ? ' (' + t.req_area + ')' : '' %></p>
+            <p class="mb-0"><strong><%= t.target_name %>:</strong> <%= t.tgt_service %> — <%= t.tgt_location %><%= t.tgt_area ? ' (' + t.tgt_area + ')' : '' %></p>
+          </div>
+          <span class="badge bg-<%= t.status === 'pending' ? 'warning text-dark' : t.status === 'accepted' ? 'success' : t.status === 'declined' ? 'danger' : 'secondary' %>"><%= t.status %></span>
+        </div>
+        <% if (t.message) { %><p class="mt-2 mb-0 text-muted small"><i class="bi bi-chat-left-text"></i> <%= t.message %></p><% } %>
+      </div>
+    </div>
+    <% }) %>
+  <% } else { %>
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-arrow-left-right" style="font-size:3rem;"></i>
+      <p class="mt-2">No trades yet.</p>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

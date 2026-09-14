@@ -1,0 +1,55 @@
+<%- include('../partials/head', { title: 'Member Login' }) %>
+
+<div class="d-flex align-items-center justify-content-center min-vh-100" style="background:var(--mp-cream);">
+  <div class="card home-card p-4" style="max-width:420px;width:100%;">
+    <div class="text-center mb-3">
+      <i class="bi bi-person-circle" style="font-size:2.5rem;color:var(--mp-navy);"></i>
+      <h3 class="home-card-title mt-2">Member Login</h3>
+    </div>
+    <% if (error) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <% if (step === 'email') { %>
+      <form method="POST" action="/member/login">
+        <input type="hidden" name="step" value="email">
+        <div class="mb-3">
+          <label class="form-label fw-500">Email Address</label>
+          <input type="email" name="email" class="form-control" value="<%= email %>" required autofocus>
+          <div class="form-text">Enter the email address on file with the church.</div>
+        </div>
+        <button type="submit" class="btn btn-gold w-100">Continue</button>
+      </form>
+
+    <% } else if (step === 'create_password') { %>
+      <p class="text-muted">Welcome, <strong><%= memberName %></strong>! Create a password for your account.</p>
+      <form method="POST" action="/member/login">
+        <input type="hidden" name="step" value="create_password">
+        <input type="hidden" name="email" value="<%= email %>">
+        <div class="mb-3">
+          <label class="form-label fw-500">Create Password</label>
+          <input type="password" name="password" class="form-control" required minlength="6" autofocus>
+        </div>
+        <button type="submit" class="btn btn-gold w-100">Create Account & Sign In</button>
+      </form>
+
+    <% } else if (step === 'password') { %>
+      <p class="text-muted">Welcome back, <strong><%= memberName %></strong></p>
+      <form method="POST" action="/member/login">
+        <input type="hidden" name="step" value="password">
+        <input type="hidden" name="email" value="<%= email %>">
+        <div class="mb-3">
+          <label class="form-label fw-500">Password</label>
+          <input type="password" name="password" class="form-control" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-gold w-100">Sign In</button>
+      </form>
+    <% } %>
+
+    <div class="text-center mt-3">
+      <a href="/" class="text-muted small">Back to home</a>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
