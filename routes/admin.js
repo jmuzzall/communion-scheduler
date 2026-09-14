@@ -13,6 +13,42 @@ const { sendAssignmentNotices, formatDate, checkAndSendReminders } = require('..
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+function validatePassword(password) {
+  const errors = [];
+  if (password.length < 8) errors.push('At least 8 characters');
+  if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
+  if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
+  if (!/[0-9]/.test(password)) errors.push('At least one number');
+  return errors;
+}
+
+router.get('/setup/:token', (req, res) => {
+  const invite = get("SELECT * FROM admin_invite_tokens WHERE token = ? AND used = 0 AND expires_at > datetime('now')", [req.params.token]);
+  if (!invite) return res.render('admin/login', { error: 'Invalid or expired invite link.' });
+  const admin = get('SELECT * FROM admins WHERE id = ?', [invite.admin_id]);
+  if (!admin) return res.render('admin/login', { error: 'Admin account not found.' });
+  res.render('admin/setup-password', { token: req.params.token, adminName: admin.name, error: null, errors: [] });
+});
+
+router.post('/setup/:token', (req, res) => {
+  const invite = get("SELECT * FROM admin_invite_tokens WHERE token = ? AND used = 0 AND expires_at > datetime('now')", [req.params.token]);
+  if (!invite) return res.render('admin/login', { error: 'Invalid or expired invite link.' });
+  const admin = get('SELECT * FROM admins WHERE id = ?', [invite.admin_id]);
+  if (!admin) return res.render('admin/login', { error: 'Admin account not found.' });
+  const { password, password_confirm } = req.body;
+  const pwErrors = validatePassword(password);
+  if (pwErrors.length > 0) {
+    return res.render('admin/setup-password', { token: req.params.token, adminName: admin.name, error: null, errors: pwErrors });
+  }
+  if (password !== password_confirm) {
+    return res.render('admin/setup-password', { token: req.params.token, adminName: admin.name, error: 'Passwords do not match.', errors: [] });
+  }
+  run('UPDATE admins SET password_hash = ? WHERE id = ?', [bcrypt.hashSync(password, 10), admin.id]);
+  run('UPDATE admin_invite_tokens SET used = 1 WHERE id = ?', [invite.id]);
+  req.session.admin = { id: admin.id, email: admin.email, name: admin.name, is_super: admin.is_super };
+  res.redirect('/admin/dashboard');
+});
+
 router.get('/login', (req, res) => {
   res.render('admin/login', { error: null });
 });
@@ -415,16 +451,30 @@ router.post('/settings/change-password', requireAdmin, (req, res) => {
   if (!bcrypt.compareSync(current_password, admin.password_hash)) {
     return res.redirect('/admin/settings?error=Current password incorrect');
   }
+  const pwErrors = validatePassword(new_password);
+  if (pwErrors.length > 0) {
+    return res.redirect('/admin/settings?error=' + encodeURIComponent('Password does not meet requirements: ' + pwErrors.join(', ')));
+  }
   run('UPDATE admins SET password_hash = ? WHERE id = ?', [bcrypt.hashSync(new_password, 10), admin.id]);
   res.redirect('/admin/settings?success=Password changed');
 });
 
-router.post('/settings/invite-admin', requireAdmin, (req, res) => {
+router.post('/settings/invite-admin', requireAdmin, async (req, res) => {
   const { name, email } = req.body;
-  const hash = bcrypt.hashSync('changeme' + Date.now(), 10);
+  const hash = bcrypt.hashSync(uuidv4(), 10);
   try {
     run('INSERT INTO admins (name, email, password_hash) VALUES (?,?,?)', [name, email, hash]);
-    res.redirect('/admin/settings?success=Admin added — they should change their password on first login');
+    const admin = get('SELECT * FROM admins WHERE email = ?', [email]);
+    const token = uuidv4();
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    run('INSERT INTO admin_invite_tokens (admin_id, token, expires_at) VALUES (?,?,?)', [admin.id, token, expires]);
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const link = `${appUrl}/admin/setup/${token}`;
+    await sendEmail(email, 'You\'ve been invited as a Communion Scheduler Admin',
+      `<p>Hi ${name},</p><p>You've been added as an administrator for the McLean Presbyterian Church Communion Server Scheduler.</p><p>Click the link below to set your password and activate your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Set Up Your Admin Account</a></p><p>This link expires in 7 days.</p>`,
+      `Hi ${name}, you've been invited as a Communion Scheduler admin. Set up your account here: ${link} (expires in 7 days)`
+    );
+    res.redirect('/admin/settings?success=' + encodeURIComponent(`Admin invite sent to ${name} at ${email}`));
   } catch (e) {
     res.redirect('/admin/settings?error=' + encodeURIComponent(e.message));
   }
