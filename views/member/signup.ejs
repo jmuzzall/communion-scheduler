@@ -8,16 +8,19 @@
   <h2 class="mb-1">Communion Signup</h2>
   <p class="text-muted mb-4"><%= formatDate(cd.date) %></p>
 
-  <% if (existingAssignment) { %>
+  <% if (existingAssignments.length > 0) { %>
     <div class="alert alert-info">
-      <i class="bi bi-check-circle"></i> You are signed up for this date.
-      <% const mySlot = slots.find(s => s.id === existingAssignment.slot_config_id); %>
-      <% if (mySlot) { %>
-        <strong><%= mySlot.service_time %> — <%= mySlot.location %><%= mySlot.area ? ' (' + mySlot.area + ')' : '' %></strong>
-      <% } %>
-      <form method="POST" action="/member/signup/<%= cd.id %>/withdraw" class="d-inline">
-        <button class="btn btn-sm btn-outline-danger ms-2">Withdraw</button>
-      </form>
+      <i class="bi bi-check-circle"></i> You are signed up for <strong><%= existingAssignments.length %></strong> slot<%= existingAssignments.length > 1 ? 's' : '' %>:
+      <% existingAssignments.forEach(a => { %>
+        <div class="d-flex align-items-center mt-1">
+          <span><%= a.service_time %> — <%= a.location %><%= a.area ? ' (' + a.area + ')' : '' %></span>
+          <% if (a.assignment_type === 'voluntary') { %>
+            <form method="POST" action="/member/signup/<%= cd.id %>/withdraw/<%= a.id %>" class="d-inline ms-2">
+              <button class="btn btn-sm btn-outline-danger">Withdraw</button>
+            </form>
+          <% } %>
+        </div>
+      <% }) %>
     </div>
   <% } %>
 
@@ -32,12 +35,14 @@
                 <h6 class="mb-0"><%= slot.service_time %> — <%= slot.location %><%= slot.area ? ' (' + slot.area + ')' : '' %></h6>
                 <small class="text-muted"><%= slot.filled %> / <%= slot.servers_needed %> filled</small>
               </div>
-              <% if (!existingAssignment && slot.available > 0) { %>
+              <% if (assignedSlotIds.has(slot.id)) { %>
+                <span class="badge bg-success">Signed Up</span>
+              <% } else if (slot.available > 0) { %>
                 <form method="POST" action="/member/signup/<%= cd.id %>/claim">
                   <input type="hidden" name="slot_config_id" value="<%= slot.id %>">
                   <button class="btn btn-sm btn-gold">Sign Up</button>
                 </form>
-              <% } else if (slot.available <= 0) { %>
+              <% } else { %>
                 <span class="badge bg-secondary">Full</span>
               <% } %>
             </div>
@@ -76,7 +81,8 @@
             <hr>
           <% } %>
 
-          <% if (!existingAssignment) { %>
+          <% const hasFullDay = existingExclusions.some(e => e.exclusion_type === 'full_day'); %>
+          <% if (!hasFullDay) { %>
             <p class="text-muted small">Mark unavailability:</p>
             <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-2">
               <input type="hidden" name="exclusion_type" value="full_day">

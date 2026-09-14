@@ -109,7 +109,7 @@ router.get('/signup/:dateId', requireMember, (req, res) => {
   }
 
   const slots = all('SELECT * FROM slot_config ORDER BY sort_order');
-  const existingAssignment = get('SELECT * FROM assignments WHERE member_id = ? AND communion_date_id = ?',
+  const existingAssignments = all('SELECT a.*, sc.service_time, sc.location, sc.area FROM assignments a JOIN slot_config sc ON a.slot_config_id = sc.id WHERE a.member_id = ? AND a.communion_date_id = ?',
     [req.session.member.id, cd.id]);
   const existingExclusions = all('SELECT * FROM exclusions WHERE member_id = ? AND communion_date_id = ?',
     [req.session.member.id, cd.id]);
@@ -135,7 +135,8 @@ router.get('/signup/:dateId', requireMember, (req, res) => {
     member: req.session.member,
     cd,
     slots: slotData,
-    existingAssignment,
+    existingAssignments,
+    assignedSlotIds: new Set(existingAssignments.map(a => a.slot_config_id)),
     existingExclusions,
     formatDate,
     serviceTimes: serviceTimesAvail,
@@ -152,10 +153,10 @@ router.post('/signup/:dateId/claim', requireMember, (req, res) => {
     return res.redirect('/member/portal');
   }
 
-  const existing = get('SELECT * FROM assignments WHERE member_id = ? AND communion_date_id = ?',
-    [req.session.member.id, cd.id]);
-  if (existing) {
-    return res.redirect('/member/signup/' + req.params.dateId + '?error=You are already signed up for this date');
+  const existingForSlot = get('SELECT * FROM assignments WHERE member_id = ? AND communion_date_id = ? AND slot_config_id = ?',
+    [req.session.member.id, cd.id, slot_config_id]);
+  if (existingForSlot) {
+    return res.redirect('/member/signup/' + req.params.dateId + '?error=You are already signed up for that slot');
   }
 
   const slot = get('SELECT * FROM slot_config WHERE id = ?', [slot_config_id]);
@@ -169,15 +170,12 @@ router.post('/signup/:dateId/claim', requireMember, (req, res) => {
   run('INSERT INTO assignments (member_id, communion_date_id, slot_config_id, assignment_type, member_category_at_assignment) VALUES (?,?,?,?,?)',
     [req.session.member.id, cd.id, slot_config_id, 'voluntary', member.category]);
 
-  run('DELETE FROM exclusions WHERE member_id = ? AND communion_date_id = ?',
-    [req.session.member.id, cd.id]);
-
   res.redirect('/member/signup/' + req.params.dateId + '?success=You are signed up!');
 });
 
-router.post('/signup/:dateId/withdraw', requireMember, (req, res) => {
-  run('DELETE FROM assignments WHERE member_id = ? AND communion_date_id = ? AND assignment_type = ?',
-    [req.session.member.id, req.params.dateId, 'voluntary']);
+router.post('/signup/:dateId/withdraw/:assignmentId', requireMember, (req, res) => {
+  run('DELETE FROM assignments WHERE id = ? AND member_id = ? AND communion_date_id = ? AND assignment_type = ?',
+    [req.params.assignmentId, req.session.member.id, req.params.dateId, 'voluntary']);
   res.redirect('/member/signup/' + req.params.dateId + '?success=Signup withdrawn');
 });
 

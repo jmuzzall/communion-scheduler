@@ -156,6 +156,26 @@ h1, h2, h3, h4, h5, .navbar-brand {
   color: #fff;
 }
 
+.btn-outline-danger {
+  color: #c0392b;
+  border-color: #c0392b;
+  background: #fff;
+}
+.btn-outline-danger:hover {
+  background: #c0392b;
+  color: #fff;
+}
+
+.btn-outline-warning {
+  color: #7d5a00;
+  border-color: #c59100;
+  background: #fffdf5;
+}
+.btn-outline-warning:hover {
+  background: #c59100;
+  color: #fff;
+}
+
 .btn-admin-corner {
   font-size: 0.78rem;
   font-weight: 600;
