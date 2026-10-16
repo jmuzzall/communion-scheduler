@@ -36,6 +36,7 @@
               </td>
               <td>
                 <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editModal<%= m.id %>" title="Edit"><i class="bi bi-pencil"></i></button>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#pwModal<%= m.id %>" title="Set password"><i class="bi bi-key"></i></button>
                 <form method="POST" action="/admin/roster/send-magic-link/<%= m.id %>" class="d-inline">
                   <button class="btn btn-sm btn-outline-primary" title="Send login link"><i class="bi bi-link-45deg"></i></button>
                 </form>
@@ -65,6 +66,22 @@
                       </div>
                     </div>
                     <div class="modal-footer"><button type="submit" class="btn btn-gold">Save</button></div>
+                  </form>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal fade" id="pwModal<%= m.id %>" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <form method="POST" action="/admin/roster/set-password/<%= m.id %>">
+                    <div class="modal-header"><h5 class="modal-title">Set Password</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                      <p class="text-muted small mb-2">Set a password for <strong><%= m.name %></strong></p>
+                      <div class="mb-2"><input type="password" name="password" class="form-control" placeholder="New password" required minlength="8"></div>
+                      <div class="form-text">Min 8 chars, with uppercase, lowercase, and a number.</div>
+                    </div>
+                    <div class="modal-footer"><button type="submit" class="btn btn-gold">Set Password</button></div>
                   </form>
                 </div>
               </div>

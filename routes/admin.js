@@ -121,6 +121,18 @@ router.post('/roster/delete/:id', requireAdmin, (req, res) => {
   res.redirect('/admin/roster?success=Member removed');
 });
 
+router.post('/roster/set-password/:id', requireAdmin, (req, res) => {
+  const { password } = req.body;
+  const member = get('SELECT * FROM members WHERE id = ?', [req.params.id]);
+  if (!member) return res.redirect('/admin/roster?error=Member not found');
+  const pwErrors = validatePassword(password);
+  if (pwErrors.length > 0) {
+    return res.redirect('/admin/roster?error=' + encodeURIComponent('Password does not meet requirements: ' + pwErrors.join(', ')));
+  }
+  run('UPDATE members SET password_hash = ? WHERE id = ?', [bcrypt.hashSync(password, 10), member.id]);
+  res.redirect('/admin/roster?success=' + encodeURIComponent(`Password set for ${member.name}`));
+});
+
 router.post('/roster/send-magic-link/:id', requireAdmin, async (req, res) => {
   const member = get('SELECT * FROM members WHERE id = ?', [req.params.id]);
   if (!member) return res.redirect('/admin/roster?error=Member not found');
