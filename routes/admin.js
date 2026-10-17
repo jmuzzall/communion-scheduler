@@ -10,16 +10,15 @@ const { get, all, run, generateCommunionDates, formatCategory } = require('../db
 const { autoAssign, getServiceCounts } = require('../services/scheduler');
 const { sendNotification, sendEmail } = require('../services/mailer');
 const { sendAssignmentNotices, formatDate, checkAndSendReminders } = require('../services/reminderScheduler');
+const { validatePassword } = require('../utils/validation');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-function validatePassword(password) {
-  const errors = [];
-  if (password.length < 8) errors.push('At least 8 characters');
-  if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
-  if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
-  if (!/[0-9]/.test(password)) errors.push('At least one number');
-  return errors;
+function buildMagicLinkEmail(memberName, link) {
+  return {
+    html: `<p>Hi ${memberName},</p><p>You've been invited to the McLean Presbyterian Church Communion Server Scheduler. Click the link below to log in and set up your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Log In to Communion Scheduler</a></p><p>This link expires in 7 days.</p><p>If you didn't expect this email, you can safely ignore it.</p>`,
+    text: `Hi ${memberName}, you've been invited to the Communion Scheduler. Log in here: ${link} (expires in 7 days)`
+  };
 }
 
 router.get('/setup/:token', (req, res) => {
@@ -136,34 +135,42 @@ router.post('/roster/set-password/:id', requireAdmin, (req, res) => {
 router.post('/roster/send-magic-link/:id', requireAdmin, async (req, res) => {
   const member = get('SELECT * FROM members WHERE id = ?', [req.params.id]);
   if (!member) return res.redirect('/admin/roster?error=Member not found');
-  const token = uuidv4();
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-  run('INSERT INTO magic_links (member_id, token, expires_at) VALUES (?,?,?)', [member.id, token, expires]);
-  const appUrl = process.env.APP_URL || 'http://localhost:3000';
-  const link = `${appUrl}/member/auth?token=${token}`;
-  await sendEmail(member.email, 'Your Communion Scheduler Login Link',
-    `<p>Hi ${member.name},</p><p>You've been invited to the McLean Presbyterian Church Communion Server Scheduler. Click the link below to log in and set up your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Log In to Communion Scheduler</a></p><p>This link expires in 7 days.</p><p>If you didn't expect this email, you can safely ignore it.</p>`,
-    `Hi ${member.name}, you've been invited to the Communion Scheduler. Log in here: ${link} (expires in 7 days)`
-  );
-  res.redirect('/admin/roster?success=' + encodeURIComponent(`Magic link sent to ${member.name}`));
+  try {
+    const token = uuidv4();
+    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    run('INSERT INTO magic_links (member_id, token, expires_at) VALUES (?,?,?)', [member.id, token, expires]);
+    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const link = `${appUrl}/member/auth?token=${token}`;
+    const email = buildMagicLinkEmail(member.name, link);
+    await sendEmail(member.email, 'Your Communion Scheduler Login Link', email.html, email.text);
+    res.redirect('/admin/roster?success=' + encodeURIComponent(`Magic link sent to ${member.name}`));
+  } catch (e) {
+    res.redirect('/admin/roster?error=' + encodeURIComponent(`Failed to send link to ${member.name}: ${e.message}`));
+  }
 });
 
 router.post('/roster/send-magic-links-all', requireAdmin, async (req, res) => {
   const members = all('SELECT * FROM members');
   let sent = 0;
+  let failed = 0;
   const appUrl = process.env.APP_URL || 'http://localhost:3000';
   for (const member of members) {
-    const token = uuidv4();
-    const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-    run('INSERT INTO magic_links (member_id, token, expires_at) VALUES (?,?,?)', [member.id, token, expires]);
-    const link = `${appUrl}/member/auth?token=${token}`;
-    await sendEmail(member.email, 'Your Communion Scheduler Login Link',
-      `<p>Hi ${member.name},</p><p>You've been invited to the McLean Presbyterian Church Communion Server Scheduler. Click the link below to log in and set up your account:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">Log In to Communion Scheduler</a></p><p>This link expires in 7 days.</p><p>If you didn't expect this email, you can safely ignore it.</p>`,
-      `Hi ${member.name}, you've been invited to the Communion Scheduler. Log in here: ${link} (expires in 7 days)`
-    );
-    sent++;
+    try {
+      const token = uuidv4();
+      const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      run('INSERT INTO magic_links (member_id, token, expires_at) VALUES (?,?,?)', [member.id, token, expires]);
+      const link = `${appUrl}/member/auth?token=${token}`;
+      const email = buildMagicLinkEmail(member.name, link);
+      await sendEmail(member.email, 'Your Communion Scheduler Login Link', email.html, email.text);
+      sent++;
+    } catch (e) {
+      failed++;
+    }
   }
-  res.redirect('/admin/roster?success=' + encodeURIComponent(`Magic links sent to ${sent} member(s)`));
+  const msg = failed > 0
+    ? `Sent ${sent} link(s), ${failed} failed`
+    : `Magic links sent to ${sent} member(s)`;
+  res.redirect('/admin/roster?success=' + encodeURIComponent(msg));
 });
 
 router.post('/roster/import', requireAdmin, upload.single('csv'), (req, res) => {
@@ -440,6 +447,9 @@ router.post('/trigger-reminders', requireAdmin, async (req, res) => {
 router.post('/open-signups/:dateId', requireAdmin, (req, res) => {
   const cd = get('SELECT * FROM communion_dates WHERE id = ?', [req.params.dateId]);
   if (!cd) return res.redirect('/admin/schedule?error=Date not found');
+  if (cd.status !== 'upcoming' && cd.status !== 'signup_open') {
+    return res.redirect(`/admin/schedule?date_id=${cd.id}&error=Cannot toggle signups for a date with status "${cd.status}"`);
+  }
   const newStatus = cd.status === 'upcoming' ? 'signup_open' : 'upcoming';
   run('UPDATE communion_dates SET status = ? WHERE id = ?', [newStatus, cd.id]);
   res.redirect(`/admin/schedule?date_id=${cd.id}&success=Status changed to ${newStatus}`);

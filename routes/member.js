@@ -7,15 +7,7 @@ const { get, all, run, formatCategory } = require('../db');
 const { sendNotification, sendEmail } = require('../services/mailer');
 const { getServiceHistory } = require('../services/scheduler');
 const { formatDate } = require('../services/reminderScheduler');
-
-function validatePassword(password) {
-  const errors = [];
-  if (password.length < 8) errors.push('At least 8 characters');
-  if (!/[A-Z]/.test(password)) errors.push('At least one uppercase letter');
-  if (!/[a-z]/.test(password)) errors.push('At least one lowercase letter');
-  if (!/[0-9]/.test(password)) errors.push('At least one number');
-  return errors;
-}
+const { validatePassword } = require('../utils/validation');
 
 router.get('/login', (req, res) => {
   res.render('member/login', { error: null, step: 'email', email: '' });

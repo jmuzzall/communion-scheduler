@@ -74,11 +74,12 @@
             <div class="modal fade" id="pwModal<%= m.id %>" tabindex="-1">
               <div class="modal-dialog modal-sm">
                 <div class="modal-content">
-                  <form method="POST" action="/admin/roster/set-password/<%= m.id %>">
+                  <form method="POST" action="/admin/roster/set-password/<%= m.id %>" onsubmit="if(this.password.value!==this.password_confirm.value){alert('Passwords do not match');return false;}">
                     <div class="modal-header"><h5 class="modal-title">Set Password</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                     <div class="modal-body">
                       <p class="text-muted small mb-2">Set a password for <strong><%= m.name %></strong></p>
                       <div class="mb-2"><input type="password" name="password" class="form-control" placeholder="New password" required minlength="8"></div>
+                      <div class="mb-2"><input type="password" name="password_confirm" class="form-control" placeholder="Confirm password" required minlength="8"></div>
                       <div class="form-text">Min 8 chars, with uppercase, lowercase, and a number.</div>
                     </div>
                     <div class="modal-footer"><button type="submit" class="btn btn-gold">Set Password</button></div>
