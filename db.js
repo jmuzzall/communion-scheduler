@@ -189,6 +189,46 @@ function initSchema() {
   )`);
 
   seedDefaults();
+  runMigrations();
+}
+
+function runMigrations() {
+  const cols = (table) => {
+    const result = db.exec(`PRAGMA table_info(${table})`);
+    if (!result.length) return [];
+    return result[0].values.map(r => r[1]);
+  };
+
+  if (!cols('members').includes('preferred_location')) {
+    db.run('ALTER TABLE members ADD COLUMN preferred_location TEXT');
+  }
+
+  if (!cols('exclusions').includes('reason')) {
+    db.run('ALTER TABLE exclusions ADD COLUMN reason TEXT');
+  }
+
+  const hasMcLean = get("SELECT COUNT(*) as c FROM slot_config WHERE location LIKE 'McLean%'");
+  if (!hasMcLean || hasMcLean.c === 0) {
+    const mcLeanSlots = [
+      ['8:45 AM', 'McLean Fellowship Hall', null, 6, 1],
+      ['8:45 AM', 'McLean Sanctuary', 'Main Sanctuary', 8, 2],
+      ['8:45 AM', 'McLean Sanctuary', 'Balcony', 2, 3],
+      ['11:15 AM', 'McLean Fellowship Hall', null, 6, 4],
+      ['11:15 AM', 'McLean Sanctuary', 'Main Sanctuary', 8, 5],
+    ];
+    for (const [time, loc, area, needed, order] of mcLeanSlots) {
+      db.run('INSERT INTO slot_config (service_time, location, area, servers_needed, sort_order) VALUES (?,?,?,?,?)',
+        [time, loc, area, needed, order]);
+    }
+  }
+
+  const hasHerndon = get("SELECT COUNT(*) as c FROM slot_config WHERE location LIKE 'Herndon%'");
+  if (!hasHerndon || hasHerndon.c === 0) {
+    db.run('INSERT INTO slot_config (service_time, location, area, servers_needed, sort_order) VALUES (?,?,?,?,?)',
+      ['10:45 AM', 'Herndon Sanctuary', null, 5, 6]);
+  }
+
+  save();
 }
 
 function seedDefaults() {
@@ -200,6 +240,7 @@ function seedDefaults() {
       ['8:45 AM', 'McLean Sanctuary', 'Balcony', 2, 3],
       ['11:15 AM', 'McLean Fellowship Hall', null, 6, 4],
       ['11:15 AM', 'McLean Sanctuary', 'Main Sanctuary', 8, 5],
+      ['10:45 AM', 'Herndon Sanctuary', null, 5, 6],
     ];
     for (const [time, loc, area, needed, order] of slots) {
       db.run('INSERT INTO slot_config (service_time, location, area, servers_needed, sort_order) VALUES (?,?,?,?,?)',

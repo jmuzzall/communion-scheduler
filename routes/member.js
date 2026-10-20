@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
-const { requireMember } = require('../middleware/auth');
+const { requireMember, requireLocationSet } = require('../middleware/auth');
 const { get, all, run, formatCategory } = require('../db');
 const { sendNotification, sendEmail } = require('../services/mailer');
 const { getServiceHistory } = require('../services/scheduler');
@@ -36,7 +36,7 @@ router.post('/login', (req, res) => {
     }
     const hash = bcrypt.hashSync(password, 10);
     run('UPDATE members SET password_hash = ? WHERE id = ?', [hash, member.id]);
-    req.session.member = { id: member.id, name: member.name, email: member.email };
+    req.session.member = { id: member.id, name: member.name, email: member.email, preferred_location: member.preferred_location };
     return res.redirect('/member/portal');
   }
 
@@ -44,7 +44,7 @@ router.post('/login', (req, res) => {
   if (!member || !bcrypt.compareSync(password, member.password_hash)) {
     return res.render('member/login', { error: 'Invalid password.', step: 'password', email, memberName: member?.name });
   }
-  req.session.member = { id: member.id, name: member.name, email: member.email };
+  req.session.member = { id: member.id, name: member.name, email: member.email, preferred_location: member.preferred_location };
   res.redirect('/member/portal');
 });
 
@@ -56,7 +56,7 @@ router.get('/auth', (req, res) => {
   run('UPDATE magic_links SET used = 1 WHERE id = ?', [link.id]);
   const member = get('SELECT * FROM members WHERE id = ?', [link.member_id]);
   if (!member) return res.redirect('/member/login');
-  req.session.member = { id: member.id, name: member.name, email: member.email };
+  req.session.member = { id: member.id, name: member.name, email: member.email, preferred_location: member.preferred_location };
   if (!member.password_hash) {
     return res.redirect('/member/setup-password');
   }
@@ -86,7 +86,21 @@ router.get('/logout', (req, res) => {
   res.redirect('/');
 });
 
-router.get('/portal', requireMember, (req, res) => {
+router.get('/set-location', requireMember, (req, res) => {
+  res.render('member/set-location', { member: req.session.member, error: null });
+});
+
+router.post('/set-location', requireMember, (req, res) => {
+  const { preferred_location } = req.body;
+  if (!['McLean', 'Herndon'].includes(preferred_location)) {
+    return res.render('member/set-location', { member: req.session.member, error: 'Please select a location.' });
+  }
+  run('UPDATE members SET preferred_location = ? WHERE id = ?', [preferred_location, req.session.member.id]);
+  req.session.member.preferred_location = preferred_location;
+  res.redirect('/member/portal');
+});
+
+router.get('/portal', requireMember, requireLocationSet, (req, res) => {
   const today = new Date().toISOString().split('T')[0];
   const assignments = all(
     `SELECT a.*, cd.date, cd.status as cd_status, sc.service_time, sc.location, sc.area
@@ -128,7 +142,7 @@ router.get('/portal', requireMember, (req, res) => {
   });
 });
 
-router.get('/signup/:dateId', requireMember, (req, res) => {
+router.get('/signup/:dateId', requireMember, requireLocationSet, (req, res) => {
   const cd = get('SELECT * FROM communion_dates WHERE id = ?', [req.params.dateId]);
   if (!cd || cd.status !== 'signup_open') {
     return res.redirect('/member/portal');
@@ -157,6 +171,14 @@ router.get('/signup/:dateId', requireMember, (req, res) => {
   const serviceTimesAvail = [...new Set(slots.map(s => s.service_time))];
   const locationsAvail = [...new Set(slots.map(s => s.location))];
 
+  const preferredLocation = req.session.member.preferred_location;
+  slotData.sort((a, b) => {
+    const aPref = a.location.startsWith(preferredLocation) ? 0 : 1;
+    const bPref = b.location.startsWith(preferredLocation) ? 0 : 1;
+    if (aPref !== bPref) return aPref - bPref;
+    return a.sort_order - b.sort_order;
+  });
+
   res.render('member/signup', {
     member: req.session.member,
     cd,
@@ -167,6 +189,7 @@ router.get('/signup/:dateId', requireMember, (req, res) => {
     formatDate,
     serviceTimes: serviceTimesAvail,
     locations: locationsAvail,
+    preferredLocation,
     success: req.query.success,
     error: req.query.error,
   });
@@ -206,7 +229,7 @@ router.post('/signup/:dateId/withdraw/:assignmentId', requireMember, (req, res) 
 });
 
 router.post('/signup/:dateId/exclude', requireMember, (req, res) => {
-  const { exclusion_type, exclusion_value } = req.body;
+  const { exclusion_type, exclusion_value, reason } = req.body;
   const cd = get('SELECT * FROM communion_dates WHERE id = ?', [req.params.dateId]);
   if (!cd || cd.status !== 'signup_open') {
     return res.redirect('/member/portal');
@@ -215,8 +238,8 @@ router.post('/signup/:dateId/exclude', requireMember, (req, res) => {
   if (exclusion_type === 'full_day') {
     run('DELETE FROM exclusions WHERE member_id = ? AND communion_date_id = ?',
       [req.session.member.id, cd.id]);
-    run('INSERT OR IGNORE INTO exclusions (member_id, communion_date_id, exclusion_type) VALUES (?,?,?)',
-      [req.session.member.id, cd.id, 'full_day']);
+    run('INSERT INTO exclusions (member_id, communion_date_id, exclusion_type, reason) VALUES (?,?,?,?)',
+      [req.session.member.id, cd.id, 'full_day', reason || null]);
   } else {
     run('INSERT OR IGNORE INTO exclusions (member_id, communion_date_id, exclusion_type, exclusion_value) VALUES (?,?,?,?)',
       [req.session.member.id, cd.id, exclusion_type, exclusion_value]);
@@ -230,7 +253,7 @@ router.post('/signup/:dateId/remove-exclusion/:exId', requireMember, (req, res) 
   res.redirect('/member/signup/' + req.params.dateId + '?success=Exclusion removed');
 });
 
-router.get('/trades', requireMember, (req, res) => {
+router.get('/trades', requireMember, requireLocationSet, (req, res) => {
   const trades = all(
     `SELECT t.*,
        r.name as requester_name, tg.name as target_name,
@@ -252,7 +275,7 @@ router.get('/trades', requireMember, (req, res) => {
   res.render('member/trades', { member: req.session.member, trades, formatDate, success: req.query.success, error: req.query.error });
 });
 
-router.get('/propose-trade/:assignmentId', requireMember, (req, res) => {
+router.get('/propose-trade/:assignmentId', requireMember, requireLocationSet, (req, res) => {
   const myAssignment = get(
     `SELECT a.*, cd.date, cd.id as cd_id, sc.service_time, sc.location, sc.area
      FROM assignments a
@@ -401,20 +424,21 @@ router.post('/trade/:id/cancel', requireMember, (req, res) => {
   res.redirect('/member/trades?success=Trade cancelled');
 });
 
-router.get('/history', requireMember, (req, res) => {
+router.get('/history', requireMember, requireLocationSet, (req, res) => {
   const history = getServiceHistory(req.session.member.id, 12);
   res.render('member/history', { member: req.session.member, history, formatDate, formatCategory });
 });
 
-router.get('/profile', requireMember, (req, res) => {
+router.get('/profile', requireMember, requireLocationSet, (req, res) => {
   const member = get('SELECT * FROM members WHERE id = ?', [req.session.member.id]);
   res.render('member/profile', { member, success: req.query.success, error: req.query.error });
 });
 
 router.post('/profile', requireMember, (req, res) => {
-  const { phone, notify_email, notify_sms, new_password } = req.body;
-  run('UPDATE members SET phone=?, notify_email=?, notify_sms=? WHERE id=?',
-    [phone || null, notify_email ? 1 : 0, notify_sms ? 1 : 0, req.session.member.id]);
+  const { phone, notify_email, notify_sms, preferred_location, new_password } = req.body;
+  run('UPDATE members SET phone=?, notify_email=?, notify_sms=?, preferred_location=? WHERE id=?',
+    [phone || null, notify_email ? 1 : 0, notify_sms ? 1 : 0, preferred_location || null, req.session.member.id]);
+  if (preferred_location) req.session.member.preferred_location = preferred_location;
   if (new_password) {
     const pwErrors = validatePassword(new_password);
     if (pwErrors.length > 0) {

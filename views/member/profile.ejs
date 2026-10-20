@@ -27,6 +27,14 @@
               <input type="text" name="phone" class="form-control" value="<%= member.phone || '' %>" placeholder="(555) 123-4567">
             </div>
             <div class="mb-3">
+              <label class="form-label fw-bold">Preferred Worship Location</label>
+              <select name="preferred_location" class="form-select">
+                <option value="McLean" <%= member.preferred_location === 'McLean' ? 'selected' : '' %>>McLean</option>
+                <option value="Herndon" <%= member.preferred_location === 'Herndon' ? 'selected' : '' %>>Herndon</option>
+              </select>
+              <div class="form-text">Your preferred location's slots appear first on the signup page.</div>
+            </div>
+            <div class="mb-3">
               <label class="form-label fw-bold">Notification Preferences</label>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="notify_email" value="1" <%= member.notify_email ? 'checked' : '' %>>

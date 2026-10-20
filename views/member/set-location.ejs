@@ -1,0 +1,39 @@
+<%- include('../partials/head', { title: 'Choose Your Location' }) %>
+
+<div class="d-flex align-items-center justify-content-center min-vh-100" style="background:var(--mp-cream);">
+  <div class="card home-card p-4" style="max-width:460px;width:100%;">
+    <div class="text-center mb-3">
+      <i class="bi bi-geo-alt" style="font-size:2.5rem;color:var(--mp-navy);"></i>
+      <h3 class="home-card-title mt-2">Choose Your Worship Location</h3>
+    </div>
+    <p class="text-muted">Welcome, <strong><%= member.name %></strong>! Which campus do you normally attend? This helps us show you the most relevant service slots first.</p>
+
+    <% if (error) { %>
+      <div class="alert alert-danger"><%= error %></div>
+    <% } %>
+
+    <form method="POST" action="/member/set-location">
+      <div class="d-flex flex-column gap-3 mb-4">
+        <label class="card border p-3 d-flex align-items-center gap-3" style="cursor:pointer;">
+          <input type="radio" name="preferred_location" value="McLean" class="form-check-input mt-0" required checked>
+          <div>
+            <strong class="d-block">McLean</strong>
+            <small class="text-muted">8:45 AM &amp; 11:15 AM services</small>
+          </div>
+        </label>
+        <label class="card border p-3 d-flex align-items-center gap-3" style="cursor:pointer;">
+          <input type="radio" name="preferred_location" value="Herndon" class="form-check-input mt-0">
+          <div>
+            <strong class="d-block">Herndon</strong>
+            <small class="text-muted">10:45 AM service</small>
+          </div>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-gold w-100">Continue</button>
+    </form>
+
+    <p class="text-muted text-center small mt-3 mb-0">You can change this anytime from your profile.</p>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,6 +1,13 @@
 <%- include('../partials/head', { title: 'Sign Up' }) %>
 <%- include('../partials/member-navbar', { page: 'portal' }) %>
 
+<%
+  const hasFullDay = existingExclusions.some(e => e.exclusion_type === 'full_day');
+  const excludedServiceTimes = new Set(existingExclusions.filter(e => e.exclusion_type === 'service_time').map(e => e.exclusion_value));
+  const excludedLocations = new Set(existingExclusions.filter(e => e.exclusion_type === 'location').map(e => e.exclusion_value));
+  let lastCampus = '';
+%>
+
 <div class="container mt-4">
   <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
   <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><% } %>
@@ -28,7 +35,17 @@
     <div class="col-lg-8">
       <h5>Available Slots</h5>
       <% slots.forEach(slot => { %>
-        <div class="card border-0 shadow-sm mb-3">
+        <% const campus = slot.location.split(' ')[0]; %>
+        <% if (campus !== lastCampus) { lastCampus = campus; %>
+          <h6 class="mt-3 mb-2 text-muted">
+            <i class="bi bi-geo-alt"></i> <%= campus %> Campus
+            <% if (preferredLocation && campus === preferredLocation) { %>
+              <span class="badge bg-success ms-1" style="font-size:0.65rem;">Your preferred</span>
+            <% } %>
+          </h6>
+        <% } %>
+        <% const isExcluded = hasFullDay || excludedServiceTimes.has(slot.service_time) || excludedLocations.has(slot.location); %>
+        <div class="card border-0 shadow-sm mb-3 <%= isExcluded ? 'slot-excluded' : '' %>">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
               <div>
@@ -37,6 +54,8 @@
               </div>
               <% if (assignedSlotIds.has(slot.id)) { %>
                 <span class="badge bg-success">Signed Up</span>
+              <% } else if (isExcluded) { %>
+                <span class="badge bg-secondary">Excluded</span>
               <% } else if (slot.available > 0) { %>
                 <form method="POST" action="/member/signup/<%= cd.id %>/claim">
                   <input type="hidden" name="slot_config_id" value="<%= slot.id %>">
@@ -66,13 +85,16 @@
             <p class="text-muted small mb-2">Current exclusions:</p>
             <% existingExclusions.forEach(ex => { %>
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <span class="small">
+                <div class="small">
                   <% if (ex.exclusion_type === 'full_day') { %>
                     <i class="bi bi-x-circle text-danger"></i> Unavailable all day
+                    <% if (ex.reason) { %>
+                      <span class="text-muted d-block ms-4"><%= ex.reason %></span>
+                    <% } %>
                   <% } else { %>
                     <i class="bi bi-dash-circle text-warning"></i> <%= ex.exclusion_value %>
                   <% } %>
-                </span>
+                </div>
                 <form method="POST" action="/member/signup/<%= cd.id %>/remove-exclusion/<%= ex.id %>">
                   <button class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
                 </form>
@@ -81,13 +103,9 @@
             <hr>
           <% } %>
 
-          <% const hasFullDay = existingExclusions.some(e => e.exclusion_type === 'full_day'); %>
           <% if (!hasFullDay) { %>
             <p class="text-muted small">Mark unavailability:</p>
-            <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-2">
-              <input type="hidden" name="exclusion_type" value="full_day">
-              <button class="btn btn-sm btn-outline-danger w-100">Unavailable All Day</button>
-            </form>
+            <button class="btn btn-sm btn-outline-danger w-100 mb-2" data-bs-toggle="modal" data-bs-target="#unavailableModal">Unavailable All Day</button>
 
             <p class="text-muted small mt-3 mb-1">Exclude a service time:</p>
             <% serviceTimes.forEach(st => { %>
@@ -109,6 +127,31 @@
           <% } %>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="unavailableModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="/member/signup/<%= cd.id %>/exclude">
+        <input type="hidden" name="exclusion_type" value="full_day">
+        <div class="modal-header">
+          <h5 class="modal-title">Mark Unavailable</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <p>You will be marked as unavailable for all services on <strong><%= formatDate(cd.date) %></strong>.</p>
+          <div class="mb-2">
+            <label class="form-label">Reason (optional)</label>
+            <textarea name="reason" class="form-control" rows="2" maxlength="200" placeholder="e.g., Out of town, family commitment"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-outline-danger">Mark Unavailable</button>
+        </div>
+      </form>
     </div>
   </div>
 </div>
