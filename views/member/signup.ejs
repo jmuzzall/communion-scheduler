@@ -3,8 +3,6 @@
 
 <%
   const hasFullDay = existingExclusions.some(e => e.exclusion_type === 'full_day');
-  const excludedServiceTimes = new Set(existingExclusions.filter(e => e.exclusion_type === 'service_time').map(e => e.exclusion_value));
-  const excludedLocations = new Set(existingExclusions.filter(e => e.exclusion_type === 'location').map(e => e.exclusion_value));
   let lastCampus = '';
 %>
 
@@ -44,7 +42,7 @@
             <% } %>
           </h6>
         <% } %>
-        <% const isExcluded = hasFullDay || excludedServiceTimes.has(slot.service_time) || excludedLocations.has(slot.location); %>
+        <% const isExcluded = hasFullDay; %>
         <div class="card border-0 shadow-sm mb-3 <%= isExcluded ? 'slot-excluded' : '' %>">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
@@ -78,52 +76,25 @@
     </div>
 
     <div class="col-lg-4">
-      <h5>Availability Exclusions</h5>
+      <h5>Availability</h5>
       <div class="card border-0 shadow-sm">
         <div class="card-body">
-          <% if (existingExclusions.length > 0) { %>
-            <p class="text-muted small mb-2">Current exclusions:</p>
-            <% existingExclusions.forEach(ex => { %>
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <div class="small">
-                  <% if (ex.exclusion_type === 'full_day') { %>
-                    <i class="bi bi-x-circle text-danger"></i> Unavailable all day
-                    <% if (ex.reason) { %>
-                      <span class="text-muted d-block ms-4"><%= ex.reason %></span>
-                    <% } %>
-                  <% } else { %>
-                    <i class="bi bi-dash-circle text-warning"></i> <%= ex.exclusion_value %>
-                  <% } %>
-                </div>
-                <form method="POST" action="/member/signup/<%= cd.id %>/remove-exclusion/<%= ex.id %>">
-                  <button class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
-                </form>
+          <% if (hasFullDay) { %>
+            <% const fullDayEx = existingExclusions.find(e => e.exclusion_type === 'full_day'); %>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="small">
+                <i class="bi bi-x-circle text-danger"></i> Unavailable all day
+                <% if (fullDayEx.reason) { %>
+                  <span class="text-muted d-block ms-4"><%= fullDayEx.reason %></span>
+                <% } %>
               </div>
-            <% }) %>
-            <hr>
-          <% } %>
-
-          <% if (!hasFullDay) { %>
-            <p class="text-muted small">Mark unavailability:</p>
-            <button class="btn btn-sm btn-outline-danger w-100 mb-2" data-bs-toggle="modal" data-bs-target="#unavailableModal">Unavailable All Day</button>
-
-            <p class="text-muted small mt-3 mb-1">Exclude a service time:</p>
-            <% serviceTimes.forEach(st => { %>
-              <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-1">
-                <input type="hidden" name="exclusion_type" value="service_time">
-                <input type="hidden" name="exclusion_value" value="<%= st %>">
-                <button class="btn btn-sm btn-outline-warning w-100"><%= st %></button>
+              <form method="POST" action="/member/signup/<%= cd.id %>/remove-exclusion/<%= fullDayEx.id %>">
+                <button class="btn btn-sm btn-link text-danger p-0"><i class="bi bi-trash"></i></button>
               </form>
-            <% }) %>
-
-            <p class="text-muted small mt-3 mb-1">Exclude a location:</p>
-            <% locations.forEach(loc => { %>
-              <form method="POST" action="/member/signup/<%= cd.id %>/exclude" class="mb-1">
-                <input type="hidden" name="exclusion_type" value="location">
-                <input type="hidden" name="exclusion_value" value="<%= loc %>">
-                <button class="btn btn-sm btn-outline-warning w-100"><%= loc %></button>
-              </form>
-            <% }) %>
+            </div>
+          <% } else { %>
+            <p class="text-muted small">Can't make it this Sunday?</p>
+            <button class="btn btn-sm btn-outline-danger w-100" data-bs-toggle="modal" data-bs-target="#unavailableModal">Unavailable All Day</button>
           <% } %>
         </div>
       </div>

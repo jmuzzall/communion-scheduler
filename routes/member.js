@@ -168,9 +168,6 @@ router.get('/signup/:dateId', requireMember, requireLocationSet, (req, res) => {
     };
   });
 
-  const serviceTimesAvail = [...new Set(slots.map(s => s.service_time))];
-  const locationsAvail = [...new Set(slots.map(s => s.location))];
-
   const preferredLocation = req.session.member.preferred_location;
   slotData.sort((a, b) => {
     const aPref = a.location.startsWith(preferredLocation) ? 0 : 1;
@@ -187,8 +184,6 @@ router.get('/signup/:dateId', requireMember, requireLocationSet, (req, res) => {
     assignedSlotIds: new Set(existingAssignments.map(a => a.slot_config_id)),
     existingExclusions,
     formatDate,
-    serviceTimes: serviceTimesAvail,
-    locations: locationsAvail,
     preferredLocation,
     success: req.query.success,
     error: req.query.error,
@@ -229,21 +224,16 @@ router.post('/signup/:dateId/withdraw/:assignmentId', requireMember, (req, res) 
 });
 
 router.post('/signup/:dateId/exclude', requireMember, (req, res) => {
-  const { exclusion_type, exclusion_value, reason } = req.body;
+  const { reason } = req.body;
   const cd = get('SELECT * FROM communion_dates WHERE id = ?', [req.params.dateId]);
   if (!cd || cd.status !== 'signup_open') {
     return res.redirect('/member/portal');
   }
 
-  if (exclusion_type === 'full_day') {
-    run('DELETE FROM exclusions WHERE member_id = ? AND communion_date_id = ?',
-      [req.session.member.id, cd.id]);
-    run('INSERT INTO exclusions (member_id, communion_date_id, exclusion_type, reason) VALUES (?,?,?,?)',
-      [req.session.member.id, cd.id, 'full_day', reason || null]);
-  } else {
-    run('INSERT OR IGNORE INTO exclusions (member_id, communion_date_id, exclusion_type, exclusion_value) VALUES (?,?,?,?)',
-      [req.session.member.id, cd.id, exclusion_type, exclusion_value]);
-  }
+  run('DELETE FROM exclusions WHERE member_id = ? AND communion_date_id = ?',
+    [req.session.member.id, cd.id]);
+  run('INSERT INTO exclusions (member_id, communion_date_id, exclusion_type, reason) VALUES (?,?,?,?)',
+    [req.session.member.id, cd.id, 'full_day', reason || null]);
 
   res.redirect('/member/signup/' + req.params.dateId + '?success=Availability updated');
 });
