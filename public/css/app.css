@@ -180,6 +180,11 @@ h1, h2, h3, h4, h5, .navbar-brand {
   opacity: 0.55;
 }
 
+.slot-badge.slot-conflict {
+  background: #fdecea;
+  border-color: #c0392b;
+}
+
 .btn-admin-corner {
   font-size: 0.78rem;
   font-weight: 600;

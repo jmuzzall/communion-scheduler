@@ -8,6 +8,7 @@ const { sendNotification, sendEmail } = require('../services/mailer');
 const { getServiceHistory } = require('../services/scheduler');
 const { formatDate } = require('../services/reminderScheduler');
 const { validatePassword } = require('../utils/validation');
+const { slotsClash, describeSlot, findTimeConflict, tradeConflict } = require('../services/conflicts');
 
 router.get('/login', (req, res) => {
   res.render('member/login', { error: null, step: 'email', email: '' });
@@ -160,11 +161,13 @@ router.get('/signup/:dateId', requireMember, requireLocationSet, (req, res) => {
        WHERE a.communion_date_id = ? AND a.slot_config_id = ?`,
       [cd.id, slot.id]
     );
+    const clash = existingAssignments.find(a => a.slot_config_id !== slot.id && slotsClash(a, slot));
     return {
       ...slot,
       assigned,
       filled: assigned.length,
       available: slot.servers_needed - assigned.length,
+      conflict: clash ? describeSlot(clash) : null,
     };
   });
 
@@ -201,6 +204,12 @@ router.post('/signup/:dateId/claim', requireMember, (req, res) => {
     [req.session.member.id, cd.id, slot_config_id]);
   if (existingForSlot) {
     return res.redirect('/member/signup/' + req.params.dateId + '?error=You are already signed up for that slot');
+  }
+
+  const clash = findTimeConflict(req.session.member.id, cd.id, slot_config_id);
+  if (clash) {
+    return res.redirect('/member/signup/' + req.params.dateId + '?error=' + encodeURIComponent(
+      `You're already serving ${describeSlot(clash)}. Withdraw from that slot first to switch.`));
   }
 
   const slot = get('SELECT * FROM slot_config WHERE id = ?', [slot_config_id]);
@@ -285,6 +294,9 @@ router.get('/propose-trade/:assignmentId', requireMember, requireLocationSet, (r
      ORDER BY sc.sort_order, m.name`,
     [myAssignment.cd_id, req.session.member.id]
   );
+  for (const a of otherAssignments) {
+    a.blockReason = tradeConflict(myAssignment, a, 'You', a.name);
+  }
 
   res.render('member/propose-trade', {
     member: req.session.member,
@@ -302,6 +314,12 @@ router.post('/propose-trade', requireMember, async (req, res) => {
 
   const existing = get("SELECT * FROM trades WHERE requester_assignment_id = ? AND status = 'pending'", [my_assignment_id]);
   if (existing) return res.redirect('/member/trades?error=You already have a pending trade for this slot');
+
+  const targetMember = get('SELECT name FROM members WHERE id = ?', [targetA.member_id]);
+  const blocked = tradeConflict(myA, targetA, 'You', targetMember ? targetMember.name : 'The other server');
+  if (blocked) {
+    return res.redirect('/member/trades?error=' + encodeURIComponent(`That trade would double-book someone. ${blocked}`));
+  }
 
   run('INSERT INTO trades (requester_id, requester_assignment_id, target_id, target_assignment_id, message) VALUES (?,?,?,?,?)',
     [req.session.member.id, parseInt(my_assignment_id), targetA.member_id, parseInt(target_assignment_id), message || null]);
@@ -334,6 +352,22 @@ router.post('/trade/:id/accept', requireMember, async (req, res) => {
 
   const reqA = get('SELECT * FROM assignments WHERE id = ?', [trade.requester_assignment_id]);
   const tgtA = get('SELECT * FROM assignments WHERE id = ?', [trade.target_assignment_id]);
+
+  const requesterRow = get('SELECT * FROM members WHERE id = ?', [trade.requester_id]);
+  const blocked = tradeConflict(reqA, tgtA, requesterRow ? requesterRow.name : 'The other server', 'You');
+  if (blocked) {
+    run("UPDATE trades SET status = 'cancelled', resolved_at = datetime('now') WHERE id = ?", [trade.id]);
+    if (requesterRow && requesterRow.notify_email) {
+      const reason = tradeConflict(reqA, tgtA, 'You', req.session.member.name);
+      await sendEmail(requesterRow.email,
+        'Communion Slot Trade Cancelled',
+        `<p>Your trade with <strong>${req.session.member.name}</strong> was cancelled because it would have double-booked someone. ${reason}</p>`,
+        `Your trade with ${req.session.member.name} was cancelled because it would have double-booked someone. ${reason}`
+      );
+    }
+    return res.redirect('/member/trades?error=' + encodeURIComponent(
+      `This trade was cancelled because it would double-book someone. ${blocked}`));
+  }
 
   const tempSlot = reqA.slot_config_id;
   run('UPDATE assignments SET slot_config_id = ?, assignment_type = ? WHERE id = ?',

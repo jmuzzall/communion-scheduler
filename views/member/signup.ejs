@@ -43,7 +43,8 @@
           </h6>
         <% } %>
         <% const isExcluded = hasFullDay; %>
-        <div class="card border-0 shadow-sm mb-3 <%= isExcluded ? 'slot-excluded' : '' %>">
+        <% const isBlocked = !assignedSlotIds.has(slot.id) && !isExcluded && slot.conflict; %>
+        <div class="card border-0 shadow-sm mb-3 <%= isExcluded || isBlocked ? 'slot-excluded' : '' %>">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center">
               <div>
@@ -54,6 +55,8 @@
                 <span class="badge bg-success">Signed Up</span>
               <% } else if (isExcluded) { %>
                 <span class="badge bg-secondary">Excluded</span>
+              <% } else if (isBlocked) { %>
+                <span class="badge bg-secondary text-wrap text-end" style="max-width:220px;" title="You can only serve one role at a time">Serving at <%= slot.conflict %></span>
               <% } else if (slot.available > 0) { %>
                 <form method="POST" action="/member/signup/<%= cd.id %>/claim">
                   <input type="hidden" name="slot_config_id" value="<%= slot.id %>">

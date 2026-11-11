@@ -11,6 +11,7 @@ const { autoAssign, getServiceCounts } = require('../services/scheduler');
 const { sendNotification, sendEmail } = require('../services/mailer');
 const { sendAssignmentNotices, formatDate, checkAndSendReminders } = require('../services/reminderScheduler');
 const { validatePassword } = require('../utils/validation');
+const { slotsClash, describeSlot, findTimeConflict, findDateConflicts } = require('../services/conflicts');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -204,7 +205,16 @@ router.get('/schedule', requireAdmin, (req, res) => {
 
   const slots = all('SELECT * FROM slot_config ORDER BY sort_order');
   let schedule = [];
+  let conflicts = [];
+  let conflictIds = new Set();
   if (selected) {
+    const members = all('SELECT id, name FROM members ORDER BY name');
+    const dayAssignments = all(
+      `SELECT a.member_id, a.slot_config_id, sc.service_time, sc.location, sc.area
+       FROM assignments a JOIN slot_config sc ON a.slot_config_id = sc.id
+       WHERE a.communion_date_id = ?`,
+      [selected.id]
+    );
     schedule = slots.map(slot => {
       const assigned = all(
         `SELECT a.*, m.name, m.email, m.category
@@ -213,8 +223,14 @@ router.get('/schedule', requireAdmin, (req, res) => {
          ORDER BY m.name`,
         [selected.id, slot.id]
       );
-      return { slot, assigned, needed: slot.servers_needed, filled: assigned.length };
+      const inSlot = new Set(assigned.map(a => a.member_id));
+      const options = members.filter(m => !inSlot.has(m.id)).map(m => {
+        const clash = dayAssignments.find(a => a.member_id === m.id && slotsClash(a, slot));
+        return { id: m.id, name: m.name, conflict: clash ? describeSlot(clash) : null };
+      });
+      return { slot, assigned, needed: slot.servers_needed, filled: assigned.length, options };
     });
+    ({ conflicts, assignmentIds: conflictIds } = findDateConflicts(selected.id));
   }
 
   res.render('admin/schedule', {
@@ -222,6 +238,8 @@ router.get('/schedule', requireAdmin, (req, res) => {
     communionDates,
     selected,
     schedule,
+    conflicts,
+    conflictIds,
     formatCategory,
     formatDate,
     success: req.query.success,
@@ -251,11 +269,29 @@ router.post('/schedule/auto-assign/:id', requireAdmin, async (req, res) => {
 });
 
 router.post('/schedule/assign', requireAdmin, (req, res) => {
-  const { member_id, communion_date_id, slot_config_id } = req.body;
+  const { member_id, communion_date_id, slot_config_id, allow_conflict } = req.body;
+  const back = (key, msg) => res.redirect('/admin/schedule?date_id=' + communion_date_id + '&' + key + '=' + encodeURIComponent(msg));
+
   const member = get('SELECT * FROM members WHERE id = ?', [member_id]);
+  const slot = get('SELECT * FROM slot_config WHERE id = ?', [slot_config_id]);
+  if (!member || !slot) return back('error', 'Choose a member and slot.');
+
+  const inSlot = get('SELECT id FROM assignments WHERE member_id = ? AND communion_date_id = ? AND slot_config_id = ?',
+    [member_id, communion_date_id, slot_config_id]);
+  if (inSlot) return back('error', `${member.name} is already in that slot.`);
+
+  const filled = get('SELECT COUNT(*) as c FROM assignments WHERE communion_date_id = ? AND slot_config_id = ?',
+    [communion_date_id, slot_config_id]);
+  if (filled.c >= slot.servers_needed) return back('error', `${describeSlot(slot)} is already full.`);
+
+  const clash = findTimeConflict(member_id, communion_date_id, slot_config_id);
+  if (clash && allow_conflict !== 'on') {
+    return back('error', `${member.name} is already serving ${describeSlot(clash)}. Remove that assignment first, or tick "Allow anyway" to add them regardless.`);
+  }
+
   run('INSERT INTO assignments (member_id, communion_date_id, slot_config_id, assignment_type, member_category_at_assignment) VALUES (?,?,?,?,?)',
-    [member_id, communion_date_id, slot_config_id, 'voluntary', member?.category]);
-  res.redirect('/admin/schedule?date_id=' + communion_date_id + '&success=Assignment added');
+    [member_id, communion_date_id, slot_config_id, 'voluntary', member.category]);
+  back('success', clash ? `Assignment added. ${member.name} is now double-booked at ${clash.service_time}.` : 'Assignment added');
 });
 
 router.post('/schedule/unassign/:id', requireAdmin, (req, res) => {

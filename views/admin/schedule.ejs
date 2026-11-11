@@ -38,6 +38,18 @@
       <% } %>
     </div>
 
+    <% if (conflicts.length) { %>
+      <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong><%= conflicts.length %> member<%= conflicts.length > 1 ? 's are' : ' is' %> double-booked on <%= formatDate(selected.date) %>:</strong>
+        <ul class="mb-0 mt-1">
+          <% conflicts.forEach(c => { %>
+            <li><%= c.name %>: <%= c.slots.join(' and ') %></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
     <div class="row g-4">
       <% schedule.forEach(item => { %>
       <div class="col-lg-6 col-xl-4">
@@ -51,7 +63,8 @@
               <div class="progress-bar" style="width:<%= (item.filled/item.needed*100) %>%;background:var(--mp-gold);"></div>
             </div>
             <% item.assigned.forEach(a => { %>
-              <div class="slot-badge">
+              <div class="slot-badge <%= conflictIds.has(a.id) ? 'slot-conflict' : '' %>" <%- conflictIds.has(a.id) ? 'title="Double-booked at this time"' : '' %>>
+                <% if (conflictIds.has(a.id)) { %><i class="bi bi-exclamation-triangle-fill text-danger"></i><% } %>
                 <%= a.name %>
                 <span class="badge bg-<%= a.assignment_type === 'voluntary' ? 'success' : a.assignment_type === 'auto' ? 'warning text-dark' : 'info' %> ms-1" style="font-size:0.65rem;"><%= a.assignment_type %></span>
                 <form method="POST" action="/admin/schedule/unassign/<%= a.id %>" class="d-inline">
@@ -66,9 +79,15 @@
                 <div class="input-group input-group-sm">
                   <select name="member_id" class="form-select form-select-sm" required>
                     <option value="">Add member...</option>
+                    <% item.options.forEach(m => { %>
+                      <option value="<%= m.id %>"><%= m.name %><%= m.conflict ? ' — serving ' + m.conflict : '' %></option>
+                    <% }) %>
                   </select>
                   <button class="btn btn-sm btn-gold">Add</button>
                 </div>
+                <label class="form-check-label small text-muted mt-1">
+                  <input type="checkbox" name="allow_conflict" class="form-check-input"> Allow anyway, even if double-booked
+                </label>
               </form>
             <% } %>
           </div>
@@ -83,18 +102,5 @@
     </div>
   <% } %>
 </div>
-
-<script>
-document.querySelectorAll('select[name="member_id"]').forEach(async sel => {
-  const assigned = new Set();
-  document.querySelectorAll('.slot-badge').forEach(b => {
-    const name = b.textContent.trim().split('\n')[0].trim();
-    assigned.add(name);
-  });
-  try {
-    const res = await fetch('/admin/roster?format=json');
-  } catch(e) {}
-});
-</script>
 
 <%- include('../partials/footer') %>
