@@ -30,9 +30,11 @@ function addMonths(iso, n) {
   return isoDate(d);
 }
 
-// Communion auto-fill runs on the Friday of the week before the Sunday (nine days ahead).
+// Auto-fill runs on the Friday of the week before the Sunday (nine days ahead), or on Thursday
+// when that Friday is a holiday.
 function autofillDate(sundayIso) {
-  return addDays(sundayIso, -9);
+  const friday = addDays(sundayIso, -9);
+  return require('./holidays').holidayName(friday) ? addDays(friday, -1) : friday;
 }
 
 function ensureSundays(monthsAhead = 15) {
