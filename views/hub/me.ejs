@@ -5,6 +5,10 @@
   <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
   <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
 
+  <% if (!person.password_hash) { %>
+    <div class="alert alert-light border small">You signed in with an emailed link. To sign in with a password next time, <a href="/me/profile">set one on your profile</a>. This is optional.</div>
+  <% } %>
+
   <h2 class="mb-1">My Sundays</h2>
   <p class="text-muted mb-3">Welcome, <%= person.name %>.</p>
 

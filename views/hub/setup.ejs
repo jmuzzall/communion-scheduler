@@ -9,6 +9,7 @@
     </div>
     <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
     <form method="POST" action="/setup">
+      <input type="hidden" name="token" value="<%= token %>">
       <div class="mb-3">
         <label class="form-label" for="setupName">Your name</label>
         <input id="setupName" type="text" name="name" class="form-control" value="<%= values.name || '' %>" required autofocus>

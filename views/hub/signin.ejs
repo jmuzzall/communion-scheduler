@@ -37,25 +37,11 @@
         <button type="submit" class="btn btn-link w-100">Forgot it? Email me a sign-in link</button>
       </form>
 
-    <% } else if (step === 'create') { %>
-      <p class="text-muted">Welcome, <strong><%= name %></strong>. Create a password, or skip it and sign in with an emailed link.</p>
-      <form method="POST" action="/signin">
-        <input type="hidden" name="step" value="create">
+    <% } else if (step === 'first') { %>
+      <p class="text-muted">Welcome, <strong><%= name %></strong>. For your first sign-in, we'll email you a link to confirm it's you. After that you can set a password on your profile if you'd like one.</p>
+      <form method="POST" action="/signin/link">
         <input type="hidden" name="email" value="<%= email %>">
-        <div class="mb-3">
-          <label class="form-label" for="newPassword">New password</label>
-          <input id="newPassword" type="password" name="new_password" class="form-control" minlength="8" required autofocus>
-          <div class="form-text">At least 8 characters.</div>
-        </div>
-        <div class="mb-3">
-          <label class="form-label" for="confirmPassword">Confirm password</label>
-          <input id="confirmPassword" type="password" name="confirm" class="form-control" minlength="8" required>
-        </div>
-        <button type="submit" class="btn btn-gold w-100">Create password and sign in</button>
-      </form>
-      <form method="POST" action="/signin/link" class="mt-2">
-        <input type="hidden" name="email" value="<%= email %>">
-        <button type="submit" class="btn btn-link w-100">Email me a sign-in link instead</button>
+        <button type="submit" class="btn btn-gold w-100">Email me a sign-in link</button>
       </form>
 
     <% } else if (step === 'link_sent') { %>

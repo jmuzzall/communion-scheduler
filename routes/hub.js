@@ -48,17 +48,28 @@ router.get('/', (req, res) => {
 });
 
 // ─── First-time setup ───────────────────────────────
+// When SETUP_TOKEN is set, the setup page only works from a link carrying that token.
+function setupTokenOk(token) {
+  const expected = process.env.SETUP_TOKEN;
+  if (!expected) return true;
+  const a = Buffer.from(String(token || ''));
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 router.get('/setup', (req, res) => {
   if (hasSuperAdmin()) return res.redirect('/signin');
-  res.render('hub/setup', { error: null, values: {} });
+  if (!setupTokenOk(req.query.token)) return res.status(403).send('Setup needs the setup link from whoever deployed this app.');
+  res.render('hub/setup', { error: null, values: {}, token: req.query.token || '' });
 });
 
 router.post('/setup', (req, res) => {
   if (hasSuperAdmin()) return res.redirect('/signin');
-  const { name, email, password, confirm } = req.body;
+  if (!setupTokenOk(req.body.token)) return res.status(403).send('Setup needs the setup link from whoever deployed this app.');
+  const { name, email, password, confirm, token } = req.body;
   const values = { name, email };
   const cleanEmail = String(email || '').trim().toLowerCase();
-  const fail = error => res.render('hub/setup', { error, values });
+  const fail = error => res.render('hub/setup', { error, values, token });
   if (!String(name || '').trim()) return fail('Enter your name.');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return fail('Enter a valid email address.');
   if (!staging.isAllowed(cleanEmail)) return fail('On the test copy, the first administrator must be on the tester list.');
@@ -86,27 +97,20 @@ router.get('/signin', (req, res) => {
   res.render('hub/signin', { step: 'email', email: '', name: '', error: null });
 });
 
+// People without a password must prove they own the address with an emailed link first;
+// they can set a password on their profile afterwards.
 router.post('/signin', (req, res) => {
-  const { step, email, password, new_password, confirm } = req.body;
+  const { step, email, password } = req.body;
   const person = findPerson(email);
   const render = (s, error) => res.render('hub/signin', { step: s, email: person ? person.email : email, name: person ? person.name : '', error });
   if (!person) return res.render('hub/signin', { step: 'email', email, name: '', error: notOnRosterMessage() });
 
-  if (step === 'email') return render(person.password_hash ? 'password' : 'create', null);
+  if (step === 'email') return render(person.password_hash ? 'password' : 'first', null);
 
   if (step === 'password') {
     if (!person.password_hash || !bcrypt.compareSync(password || '', person.password_hash)) {
-      return render('password', 'That password is incorrect. Try again, or email yourself a sign-in link.');
+      return render(person.password_hash ? 'password' : 'first', person.password_hash ? 'That password is incorrect. Try again, or email yourself a sign-in link.' : null);
     }
-    signIn(req, person);
-    return res.redirect('/me');
-  }
-
-  if (step === 'create') {
-    if (person.password_hash) return render('password', null);
-    const problem = passwordProblem(new_password, confirm);
-    if (problem) return render('create', problem);
-    run("UPDATE people SET password_hash = ?, updated_at = datetime('now') WHERE id = ?", [bcrypt.hashSync(new_password, 10), person.id]);
     signIn(req, person);
     return res.redirect('/me');
   }
