@@ -1,0 +1,72 @@
+<%- include('../partials/head', { title: 'Import Preview' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <h2 class="mb-1">Import preview</h2>
+  <p class="text-muted"><%= filename %>: nothing has been saved yet.</p>
+
+  <div class="row g-3 mb-4 text-center">
+    <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= added.length %></div><div class="small text-muted">to add</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= updated.length %></div><div class="small text-muted">to update</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= unchanged %></div><div class="small text-muted">unchanged</div></div></div></div>
+    <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold <%= errors.length ? 'text-danger' : '' %>"><%= errors.length %></div><div class="small text-muted">rows with problems</div></div></div></div>
+  </div>
+
+  <% if (errors.length) { %>
+    <div class="alert alert-danger">
+      <strong>These rows will be skipped.</strong> Fix them in the spreadsheet and import again to include them.
+      <ul class="mb-0 mt-2 small">
+        <% errors.forEach(e => { %><li>Row <%= e.line %> (<%= e.name %>): <%= e.problems.join('; ') %></li><% }) %>
+      </ul>
+    </div>
+  <% } %>
+
+  <% if (added.length) { %>
+    <h5>To add</h5>
+    <div class="table-responsive mb-4">
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Email</th><th>Office</th><th>Status</th><th>Main location</th></tr></thead>
+        <tbody>
+          <% added.forEach(r => { %>
+            <tr><td><%= r.name %></td><td class="small"><%= r.email %></td><td><%= r.office === 'elder' ? 'Elder' : 'Deacon' %></td><td><%= r.active ? 'Active' : 'Inactive' %></td><td><%= r.home_campus %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+  <% if (updated.length) { %>
+    <h5>To update</h5>
+    <div class="table-responsive mb-4">
+      <table class="table table-sm">
+        <thead><tr><th>Name</th><th>Email</th><th>What changes</th></tr></thead>
+        <tbody>
+          <% updated.forEach(r => { %>
+            <tr><td><%= r.name %></td><td class="small"><%= r.email %></td><td class="small"><%= r.changes.join(', ') %></td></tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+
+  <% if (missing.length) { %>
+    <div class="alert alert-warning">
+      <strong><%= missing.length %> officer<%= missing.length === 1 ? ' is' : 's are' %> not in this file.</strong>
+      They won't be removed. If someone has stepped down, mark them inactive from the People page.
+      <ul class="mb-0 mt-2 small">
+        <% missing.forEach(m => { %><li><%= m.name %> (<%= m.email %>)</li><% }) %>
+      </ul>
+    </div>
+  <% } %>
+
+  <div class="d-flex gap-2">
+    <form method="POST" action="/admin/people/import/confirm">
+      <button class="btn btn-gold" <%= added.length + updated.length === 0 ? 'disabled' : '' %>>Import <%= added.length + updated.length %> change<%= added.length + updated.length === 1 ? '' : 's' %></button>
+    </form>
+    <form method="POST" action="/admin/people/import/cancel">
+      <button class="btn btn-outline-secondary">Cancel</button>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

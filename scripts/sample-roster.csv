@@ -1,0 +1,7 @@
+Name,Email,Phone,Office,Status,Main Location
+Alice Elder,alice.elder@example.com,703-555-0101,Elder,Active,McLean
+Ben Elder,ben.elder@example.com,,Elder,Inactive,McLean
+Carla Elder,carla.elder@example.com,703-555-0103,Elder,Active,Herndon
+Dan Deacon,dan.deacon@example.com,703-555-0104,Deacon,Active,McLean
+Erin Deacon,erin.deacon@example.com,,Deacon,Inactive,McLean
+Frank Deacon,frank.deacon@example.com,703-555-0106,Deacon,Active,Herndon

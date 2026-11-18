@@ -1,0 +1,70 @@
+<%- include('../partials/head', { title: 'Sign In' }) %>
+
+<div class="d-flex align-items-center justify-content-center min-vh-100" style="background:var(--mp-cream);">
+  <div class="card home-card p-4" style="max-width:420px;width:100%;">
+    <div class="text-center mb-3">
+      <i class="bi bi-person-circle" style="font-size:2.5rem;color:var(--mp-navy);"></i>
+      <h3 class="home-card-title mt-2">MPC Officer Service</h3>
+      <p class="text-muted small mb-0">Communion, prayer and duty deacon scheduling</p>
+    </div>
+    <% if (isStaging) { %><div class="alert alert-warning small py-2">Test copy: only testers can sign in.</div><% } %>
+    <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+    <% if (step === 'email') { %>
+      <form method="POST" action="/signin">
+        <input type="hidden" name="step" value="email">
+        <div class="mb-3">
+          <label class="form-label" for="signinEmail">Email address</label>
+          <input id="signinEmail" type="email" name="email" class="form-control" value="<%= email %>" required autofocus>
+          <div class="form-text">Use the email address the church has on file.</div>
+        </div>
+        <button type="submit" class="btn btn-gold w-100">Continue</button>
+      </form>
+
+    <% } else if (step === 'password') { %>
+      <p class="text-muted">Welcome back, <strong><%= name %></strong>.</p>
+      <form method="POST" action="/signin">
+        <input type="hidden" name="step" value="password">
+        <input type="hidden" name="email" value="<%= email %>">
+        <div class="mb-3">
+          <label class="form-label" for="signinPassword">Password</label>
+          <input id="signinPassword" type="password" name="password" class="form-control" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-gold w-100">Sign in</button>
+      </form>
+      <form method="POST" action="/signin/link" class="mt-2">
+        <input type="hidden" name="email" value="<%= email %>">
+        <button type="submit" class="btn btn-link w-100">Forgot it? Email me a sign-in link</button>
+      </form>
+
+    <% } else if (step === 'create') { %>
+      <p class="text-muted">Welcome, <strong><%= name %></strong>. Create a password, or skip it and sign in with an emailed link.</p>
+      <form method="POST" action="/signin">
+        <input type="hidden" name="step" value="create">
+        <input type="hidden" name="email" value="<%= email %>">
+        <div class="mb-3">
+          <label class="form-label" for="newPassword">New password</label>
+          <input id="newPassword" type="password" name="new_password" class="form-control" minlength="8" required autofocus>
+          <div class="form-text">At least 8 characters.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="confirmPassword">Confirm password</label>
+          <input id="confirmPassword" type="password" name="confirm" class="form-control" minlength="8" required>
+        </div>
+        <button type="submit" class="btn btn-gold w-100">Create password and sign in</button>
+      </form>
+      <form method="POST" action="/signin/link" class="mt-2">
+        <input type="hidden" name="email" value="<%= email %>">
+        <button type="submit" class="btn btn-link w-100">Email me a sign-in link instead</button>
+      </form>
+
+    <% } else if (step === 'link_sent') { %>
+      <div class="alert alert-success mb-0">
+        <i class="bi bi-envelope-check"></i> We sent a sign-in link to <strong><%= email %></strong>. It works once and expires in 24 hours.
+      </div>
+      <a href="/signin" class="btn btn-link w-100 mt-2">Use a different email</a>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

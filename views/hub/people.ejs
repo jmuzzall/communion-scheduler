@@ -1,0 +1,79 @@
+<%- include('../partials/head', { title: 'People' }) %>
+<%- include('navbar') %>
+
+<div class="container-fluid mt-4 mb-5 px-4">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+    <div>
+      <h2 class="mb-1">People</h2>
+      <p class="text-muted small mb-0">
+        <%= counts.elders %> elders · <%= counts.deacons %> deacons · <%= counts.inactive %> inactive · <%= counts.herndon %> at Herndon
+      </p>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-3">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold"><i class="bi bi-upload"></i> Import officer roster</div>
+        <div class="card-body">
+          <form method="POST" action="/admin/people/import" enctype="multipart/form-data">
+            <label class="form-label small" for="rosterFile">CSV file</label>
+            <input id="rosterFile" type="file" name="roster" accept=".csv,text/csv" class="form-control mb-2" required>
+            <button class="btn btn-gold w-100">Preview import</button>
+          </form>
+          <p class="small text-muted mt-3 mb-1">Columns: <code>Name, Email, Phone, Office, Status, Main Location</code></p>
+          <ul class="small text-muted ps-3 mb-2">
+            <li>Office: Elder or Deacon</li>
+            <li>Status: Active or Inactive</li>
+            <li>Main Location: McLean or Herndon</li>
+          </ul>
+          <p class="small text-muted mb-2">You'll see what will be added and updated before anything is saved. Importing again updates people by email and never removes anyone.</p>
+          <a href="/admin/people/template.csv" class="small">Download a template</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-9">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          <% if (!people.length) { %>
+            <div class="text-center py-5 text-muted">
+              <i class="bi bi-people" style="font-size:2.5rem;"></i>
+              <p class="mt-2 mb-0">No officers yet. Import the roster to add everyone at once.</p>
+            </div>
+          <% } else { %>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead>
+                  <tr><th>Name</th><th>Email</th><th>Office</th><th>Status</th><th>Main location</th><th>Serves in</th><th>Access</th><th></th></tr>
+                </thead>
+                <tbody>
+                  <% people.forEach(p => { %>
+                    <tr class="<%= p.office !== 'none' && !p.active ? 'text-muted' : '' %>">
+                      <td><%= p.name %></td>
+                      <td class="small"><%= p.email %></td>
+                      <td><%= p.office === 'none' ? '—' : p.office.charAt(0).toUpperCase() + p.office.slice(1) %></td>
+                      <td><%= p.office === 'none' ? '—' : (p.active ? 'Active' : 'Inactive') %></td>
+                      <td><%= p.home_campus %></td>
+                      <td class="small"><%= p.ministries.join(', ') || '—' %></td>
+                      <td>
+                        <% if (p.roles.includes('super')) { %><span class="badge bg-dark">Admin</span><% } %>
+                        <% if (p.roles.includes('staff')) { %><span class="badge bg-info text-dark">Staff</span><% } %>
+                      </td>
+                      <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/admin/people/<%= p.id %>/edit" aria-label="Edit <%= p.name %>"><i class="bi bi-pencil"></i></a></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

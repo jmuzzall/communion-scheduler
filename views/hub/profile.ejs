@@ -1,0 +1,63 @@
+<%- include('../partials/head', { title: 'Profile' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+  <h2 class="mb-4">My Profile</h2>
+  <div class="row">
+    <div class="col-lg-6">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <dl class="row small mb-3">
+            <dt class="col-5">Name</dt><dd class="col-7"><%= person.name %></dd>
+            <dt class="col-5">Email</dt><dd class="col-7"><%= person.email %></dd>
+            <dt class="col-5">Office</dt><dd class="col-7"><%= person.office === 'none' ? 'Staff' : (person.active ? 'Active ' : 'Inactive ') + person.office %></dd>
+            <dt class="col-5">Main location</dt><dd class="col-7"><%= person.home_campus %></dd>
+          </dl>
+          <p class="form-text mt-0">An administrator manages your name, email, office and main location.</p>
+          <form method="POST" action="/me/profile">
+            <div class="mb-3">
+              <label class="form-label fw-bold" for="preferredCampus">Preferred campus for communion and prayer</label>
+              <select id="preferredCampus" name="preferred_campus" class="form-select">
+                <% campuses.forEach(c => { %>
+                  <option value="<%= c %>" <%= (person.preferred_campus || person.home_campus) === c ? 'selected' : '' %>><%= c %></option>
+                <% }) %>
+              </select>
+              <div class="form-text">That campus's slots appear first when you sign up.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold" for="phone">Phone</label>
+              <input id="phone" type="text" name="phone" class="form-control" value="<%= person.phone || '' %>" placeholder="703-555-0100">
+            </div>
+            <div class="mb-3">
+              <span class="form-label fw-bold d-block">Reminders</span>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="notifyEmail" name="notify_email" value="1" <%= person.notify_email ? 'checked' : '' %>>
+                <label class="form-check-label" for="notifyEmail">Email</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="notifySms" name="notify_sms" value="1" <%= person.notify_sms ? 'checked' : '' %>>
+                <label class="form-check-label" for="notifySms">Text message</label>
+              </div>
+            </div>
+            <hr>
+            <div class="mb-3">
+              <label class="form-label fw-bold" for="newPassword">New password (optional)</label>
+              <input id="newPassword" type="password" name="new_password" class="form-control" minlength="8" placeholder="Leave blank to keep your current password">
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="confirmPassword">Confirm new password</label>
+              <input id="confirmPassword" type="password" name="confirm" class="form-control" minlength="8">
+              <div class="form-text">At least 8 characters.</div>
+            </div>
+            <button type="submit" class="btn btn-gold">Save profile</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,34 @@
+<%- include('../partials/head', { title: 'Set Up' }) %>
+
+<div class="d-flex align-items-center justify-content-center min-vh-100" style="background:var(--mp-cream);">
+  <div class="card home-card p-4" style="max-width:440px;width:100%;">
+    <div class="text-center mb-3">
+      <i class="bi bi-shield-lock" style="font-size:2.5rem;color:var(--mp-navy);"></i>
+      <h3 class="home-card-title mt-2">Set up MPC Officer Service</h3>
+      <p class="text-muted small mb-0">Create the first administrator account. After this, this page closes.</p>
+    </div>
+    <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+    <form method="POST" action="/setup">
+      <div class="mb-3">
+        <label class="form-label" for="setupName">Your name</label>
+        <input id="setupName" type="text" name="name" class="form-control" value="<%= values.name || '' %>" required autofocus>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="setupEmail">Email</label>
+        <input id="setupEmail" type="email" name="email" class="form-control" value="<%= values.email || '' %>" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="setupPassword">Password</label>
+        <input id="setupPassword" type="password" name="password" class="form-control" minlength="8" required>
+        <div class="form-text">At least 8 characters.</div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="setupConfirm">Confirm password</label>
+        <input id="setupConfirm" type="password" name="confirm" class="form-control" minlength="8" required>
+      </div>
+      <button type="submit" class="btn btn-gold w-100">Create administrator</button>
+    </form>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

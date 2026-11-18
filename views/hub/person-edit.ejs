@@ -1,0 +1,65 @@
+<%- include('../partials/head', { title: 'Edit Person' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5" style="max-width:640px;">
+  <a href="/admin/people" class="small"><i class="bi bi-arrow-left"></i> People</a>
+  <h2 class="mt-2 mb-3">Edit <%= p.name %></h2>
+  <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body">
+      <form method="POST" action="/admin/people/<%= p.id %>">
+        <div class="mb-3">
+          <label class="form-label" for="pName">Name</label>
+          <input id="pName" type="text" name="name" class="form-control" value="<%= p.name %>" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="pEmail">Email</label>
+          <input id="pEmail" type="email" name="email" class="form-control" value="<%= p.email %>" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="pPhone">Phone</label>
+          <input id="pPhone" type="text" name="phone" class="form-control" value="<%= p.phone || '' %>">
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-sm-4">
+            <label class="form-label" for="pOffice">Office</label>
+            <select id="pOffice" name="office" class="form-select">
+              <option value="elder" <%= p.office === 'elder' ? 'selected' : '' %>>Elder</option>
+              <option value="deacon" <%= p.office === 'deacon' ? 'selected' : '' %>>Deacon</option>
+              <option value="none" <%= p.office === 'none' ? 'selected' : '' %>>None (staff only)</option>
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label" for="pStatus">Status</label>
+            <% const isActive = p.status ? p.status === 'active' : !!p.active; %>
+            <select id="pStatus" name="status" class="form-select">
+              <option value="active" <%= isActive ? 'selected' : '' %>>Active</option>
+              <option value="inactive" <%= !isActive ? 'selected' : '' %>>Inactive</option>
+            </select>
+          </div>
+          <div class="col-sm-4">
+            <label class="form-label" for="pCampus">Main location</label>
+            <select id="pCampus" name="home_campus" class="form-select">
+              <% campuses.forEach(c => { %><option value="<%= c %>" <%= p.home_campus === c ? 'selected' : '' %>><%= c %></option><% }) %>
+            </select>
+          </div>
+        </div>
+        <p class="form-text">Main location decides duty deacon eligibility. The person's preferred campus for sign-ups is theirs to change on their profile.</p>
+        <hr>
+        <span class="form-label d-block fw-bold">Access</span>
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="roleStaff" name="role_staff" value="1" <%= roles.includes('staff') ? 'checked' : '' %>>
+          <label class="form-check-label" for="roleStaff">Staff: sees and edits every ministry's schedule</label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="roleSuper" name="role_super" value="1" <%= roles.includes('super') ? 'checked' : '' %>>
+          <label class="form-check-label" for="roleSuper">Administrator: also manages people, imports and settings</label>
+        </div>
+        <button type="submit" class="btn btn-gold">Save</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

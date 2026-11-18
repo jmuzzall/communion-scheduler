@@ -1,7 +1,7 @@
 {
-  "name": "communion-scheduler",
+  "name": "mpc-officer-service",
   "version": "1.0.0",
-  "description": "Communion server scheduling system for McLean Presbyterian Church",
+  "description": "MPC Officer Service: communion, prayer and duty deacon scheduling for McLean Presbyterian Church",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

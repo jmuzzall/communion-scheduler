@@ -1,0 +1,197 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const router = express.Router();
+const { get, all, run } = require('../db');
+const { requirePerson, hasSuperAdmin } = require('../core/auth');
+const staging = require('../core/staging');
+const { sendEmail } = require('../services/mailer');
+const { eligibleMinistries, MINISTRY_NAMES } = require('../core/eligibility');
+const { upcomingServiceDays, formatDay, todayIso } = require('../core/calendar');
+const { CAMPUSES } = require('../core/schema');
+
+const MIN_PASSWORD = 8;
+const LINK_HOURS = 24;
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function appUrl(req) {
+  return process.env.APP_URL || `${req.protocol}://${req.get('host')}`;
+}
+
+function signIn(req, person) {
+  req.session.personId = person.id;
+}
+
+function findPerson(email) {
+  const p = get('SELECT * FROM people WHERE email = ?', [String(email || '').trim().toLowerCase()]);
+  return p && staging.isAllowed(p.email) ? p : null;
+}
+
+function notOnRosterMessage() {
+  return staging.isStaging()
+    ? 'This test copy is open to testers only.'
+    : "That email isn't on the officer roster. Use the address the church has on file, or ask an administrator.";
+}
+
+function passwordProblem(password, confirm) {
+  if (!password || password.length < MIN_PASSWORD) return `Use at least ${MIN_PASSWORD} characters.`;
+  if (confirm !== undefined && password !== confirm) return "The two passwords don't match.";
+  return null;
+}
+
+router.get('/', (req, res) => {
+  if (!hasSuperAdmin()) return res.redirect('/setup');
+  res.redirect(req.person ? '/me' : '/signin');
+});
+
+// ─── First-time setup ───────────────────────────────
+router.get('/setup', (req, res) => {
+  if (hasSuperAdmin()) return res.redirect('/signin');
+  res.render('hub/setup', { error: null, values: {} });
+});
+
+router.post('/setup', (req, res) => {
+  if (hasSuperAdmin()) return res.redirect('/signin');
+  const { name, email, password, confirm } = req.body;
+  const values = { name, email };
+  const cleanEmail = String(email || '').trim().toLowerCase();
+  const fail = error => res.render('hub/setup', { error, values });
+  if (!String(name || '').trim()) return fail('Enter your name.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return fail('Enter a valid email address.');
+  if (!staging.isAllowed(cleanEmail)) return fail('On the test copy, the first administrator must be on the tester list.');
+  const problem = passwordProblem(password, confirm);
+  if (problem) return fail(problem);
+
+  let person = get('SELECT * FROM people WHERE email = ?', [cleanEmail]);
+  const hash = bcrypt.hashSync(password, 10);
+  if (person) {
+    run('UPDATE people SET password_hash = ? WHERE id = ?', [hash, person.id]);
+  } else {
+    run('INSERT INTO people (name, email, password_hash) VALUES (?,?,?)', [name.trim(), cleanEmail, hash]);
+    person = get('SELECT * FROM people WHERE email = ?', [cleanEmail]);
+  }
+  run("INSERT INTO role_grants (person_id, role) VALUES (?, 'super')", [person.id]);
+  run('INSERT INTO audit_log (actor_person_id, action, details) VALUES (?,?,?)', [person.id, 'setup_super_admin', cleanEmail]);
+  signIn(req, person);
+  res.redirect('/admin/people?success=' + encodeURIComponent('You are set up as the first administrator. Import the officer roster to get started.'));
+});
+
+// ─── Sign in ───────────────────────────────────────
+router.get('/signin', (req, res) => {
+  if (!hasSuperAdmin()) return res.redirect('/setup');
+  if (req.person) return res.redirect('/me');
+  res.render('hub/signin', { step: 'email', email: '', name: '', error: null });
+});
+
+router.post('/signin', (req, res) => {
+  const { step, email, password, new_password, confirm } = req.body;
+  const person = findPerson(email);
+  const render = (s, error) => res.render('hub/signin', { step: s, email: person ? person.email : email, name: person ? person.name : '', error });
+  if (!person) return res.render('hub/signin', { step: 'email', email, name: '', error: notOnRosterMessage() });
+
+  if (step === 'email') return render(person.password_hash ? 'password' : 'create', null);
+
+  if (step === 'password') {
+    if (!person.password_hash || !bcrypt.compareSync(password || '', person.password_hash)) {
+      return render('password', 'That password is incorrect. Try again, or email yourself a sign-in link.');
+    }
+    signIn(req, person);
+    return res.redirect('/me');
+  }
+
+  if (step === 'create') {
+    if (person.password_hash) return render('password', null);
+    const problem = passwordProblem(new_password, confirm);
+    if (problem) return render('create', problem);
+    run("UPDATE people SET password_hash = ?, updated_at = datetime('now') WHERE id = ?", [bcrypt.hashSync(new_password, 10), person.id]);
+    signIn(req, person);
+    return res.redirect('/me');
+  }
+
+  render('email', null);
+});
+
+router.post('/signin/link', async (req, res) => {
+  const person = findPerson(req.body.email);
+  if (!person) return res.render('hub/signin', { step: 'email', email: req.body.email, name: '', error: notOnRosterMessage() });
+  const token = crypto.randomBytes(32).toString('hex');
+  const expires = new Date(Date.now() + LINK_HOURS * 3600 * 1000).toISOString();
+  run('INSERT INTO person_login_tokens (person_id, token, expires_at) VALUES (?,?,?)', [person.id, token, expires]);
+  const link = `${appUrl(req)}/signin/link/${token}`;
+  await sendEmail(person.email, 'Your MPC Officer Service sign-in link',
+    `<p>Hi ${escapeHtml(person.name)},</p><p>Use this link to sign in to MPC Officer Service. It works once and expires in ${LINK_HOURS} hours.</p><p><a href="${link}">Sign in</a></p>`,
+    `Hi ${person.name}, sign in to MPC Officer Service: ${link} (works once, expires in ${LINK_HOURS} hours)`);
+  res.render('hub/signin', { step: 'link_sent', email: person.email, name: person.name, error: null });
+});
+
+router.get('/signin/link/:token', (req, res) => {
+  const row = get(`SELECT * FROM person_login_tokens WHERE token = ? AND used = 0`, [req.params.token]);
+  if (!row || new Date(row.expires_at) < new Date()) {
+    return res.render('hub/signin', { step: 'email', email: '', name: '', error: 'That sign-in link has expired or was already used. Enter your email to get a new one.' });
+  }
+  const person = get('SELECT * FROM people WHERE id = ?', [row.person_id]);
+  if (!person || !staging.isAllowed(person.email)) {
+    return res.render('hub/signin', { step: 'email', email: '', name: '', error: notOnRosterMessage() });
+  }
+  run('UPDATE person_login_tokens SET used = 1 WHERE id = ?', [row.id]);
+  signIn(req, person);
+  res.redirect('/me');
+});
+
+router.get('/signout', (req, res) => {
+  req.session.destroy(() => res.redirect('/signin'));
+});
+
+// ─── My Sundays ────────────────────────────────────
+router.get('/me', requirePerson, (req, res) => {
+  const today = todayIso();
+  const days = upcomingServiceDays(today, 13);
+  const away = new Map(all('SELECT * FROM unavailability WHERE person_id = ?', [req.person.id]).map(u => [u.service_day_id, u]));
+  res.render('hub/me', {
+    page: 'me',
+    days: days.map(d => ({ ...d, display: formatDay(d.date), away: away.get(d.id) || null })),
+    ministries: eligibleMinistries(req.person).map(k => MINISTRY_NAMES[k]),
+    success: req.query.success || null,
+    error: req.query.error || null,
+  });
+});
+
+router.post('/me/away', requirePerson, (req, res) => {
+  const day = get('SELECT * FROM service_days WHERE id = ?', [req.body.service_day_id]);
+  if (!day || day.date < todayIso()) return res.redirect('/me?error=' + encodeURIComponent('Choose an upcoming Sunday.'));
+  const reason = String(req.body.reason || '').trim().slice(0, 200) || null;
+  run('DELETE FROM unavailability WHERE person_id = ? AND service_day_id = ?', [req.person.id, day.id]);
+  run("INSERT INTO unavailability (person_id, service_day_id, reason, source) VALUES (?,?,?,'self')", [req.person.id, day.id, reason]);
+  res.redirect('/me?success=' + encodeURIComponent(`Marked away on ${formatDay(day.date)}. This applies to every ministry.`));
+});
+
+router.post('/me/away/:dayId/remove', requirePerson, (req, res) => {
+  run('DELETE FROM unavailability WHERE person_id = ? AND service_day_id = ?', [req.person.id, req.params.dayId]);
+  run('DELETE FROM availability_exceptions WHERE person_id = ? AND service_day_id = ?', [req.person.id, req.params.dayId]);
+  res.redirect('/me?success=' + encodeURIComponent('You are available again that Sunday.'));
+});
+
+// ─── Profile ───────────────────────────────────────
+router.get('/me/profile', requirePerson, (req, res) => {
+  res.render('hub/profile', { page: 'profile', campuses: CAMPUSES, success: req.query.success || null, error: null });
+});
+
+router.post('/me/profile', requirePerson, (req, res) => {
+  const { preferred_campus, phone, notify_email, notify_sms, new_password, confirm } = req.body;
+  if (!CAMPUSES.includes(preferred_campus)) {
+    return res.render('hub/profile', { page: 'profile', campuses: CAMPUSES, success: null, error: 'Choose McLean or Herndon.' });
+  }
+  if (new_password) {
+    const problem = passwordProblem(new_password, confirm);
+    if (problem) return res.render('hub/profile', { page: 'profile', campuses: CAMPUSES, success: null, error: problem });
+    run('UPDATE people SET password_hash = ? WHERE id = ?', [bcrypt.hashSync(new_password, 10), req.person.id]);
+  }
+  run(`UPDATE people SET preferred_campus = ?, phone = ?, notify_email = ?, notify_sms = ?, updated_at = datetime('now') WHERE id = ?`,
+    [preferred_campus, String(phone || '').trim() || null, notify_email ? 1 : 0, notify_sms ? 1 : 0, req.person.id]);
+  res.redirect('/me/profile?success=' + encodeURIComponent('Profile saved.'));
+});
+
+module.exports = router;

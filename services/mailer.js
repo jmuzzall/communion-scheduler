@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { get, run } = require('../db');
+const staging = require('../core/staging');
 
 let transporter;
 
@@ -37,10 +38,18 @@ function renderTemplate(templateStr, vars) {
 }
 
 async function sendEmail(to, subject, html, text) {
+  if (staging.isStaging()) {
+    const allowed = staging.filterRecipients(to);
+    if (!allowed.length) {
+      console.log(`[Staging] Email "${subject}" not sent: no tester among recipients`);
+      return { success: true, suppressed: true };
+    }
+    to = allowed.join(', ');
+  }
   const t = getTransporter();
   try {
     await t.sendMail({
-      from: process.env.SMTP_USER || 'noreply@communion-scheduler.fly.dev',
+      from: process.env.SMTP_USER || 'noreply@mpc-officer-service.fly.dev',
       to,
       subject,
       html: wrapHtmlEmail(subject, html),
@@ -54,6 +63,10 @@ async function sendEmail(to, subject, html, text) {
 }
 
 async function sendSms(phone, text) {
+  if (staging.isStaging()) {
+    console.log('[Staging] Text message not sent: SMS is off on the test copy');
+    return { success: true, suppressed: true };
+  }
   if (!process.env.TWILIO_SID || !process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_SID === 'your-twilio-account-sid') {
     console.log('[SMS] No Twilio configured — logging to console');
     console.log('--- SMS ---');

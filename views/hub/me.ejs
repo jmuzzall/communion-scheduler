@@ -1,0 +1,51 @@
+<%- include('../partials/head', { title: 'My Sundays' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <h2 class="mb-1">My Sundays</h2>
+  <p class="text-muted mb-3">Welcome, <%= person.name %>.</p>
+
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body d-flex flex-wrap align-items-center gap-2">
+      <span class="text-muted small me-1">You serve in:</span>
+      <% if (ministries.length) { %>
+        <% ministries.forEach(m => { %><span class="badge bg-light text-dark border"><%= m %></span><% }) %>
+      <% } else { %>
+        <span class="small text-muted">No ministries yet. An administrator sets this from the officer roster.</span>
+      <% } %>
+      <span class="ms-auto small text-muted">Sign-ups and assignments will appear here as each ministry moves into MPC Officer Service.</span>
+    </div>
+  </div>
+
+  <h5>Next three months</h5>
+  <p class="text-muted small">Mark a Sunday away once and it applies to every ministry you serve in.</p>
+  <div class="list-group shadow-sm">
+    <% days.forEach(d => { %>
+      <div class="list-group-item d-flex flex-wrap align-items-center gap-2 <%= d.away ? 'bg-light' : '' %>">
+        <div style="min-width:150px;">
+          <strong><%= d.display %></strong>
+          <% if (d.label) { %><span class="badge bg-warning text-dark ms-1"><%= d.label %></span><% } %>
+        </div>
+        <% if (d.away) { %>
+          <span class="badge bg-secondary">Away</span>
+          <% if (d.away.reason) { %><span class="small text-muted"><%= d.away.reason %></span><% } %>
+          <form method="POST" action="/me/away/<%= d.id %>/remove" class="ms-auto">
+            <button class="btn btn-sm btn-outline-secondary">I'm available</button>
+          </form>
+        <% } else { %>
+          <form method="POST" action="/me/away" class="ms-auto d-flex gap-2 align-items-center">
+            <input type="hidden" name="service_day_id" value="<%= d.id %>">
+            <label class="visually-hidden" for="reason-<%= d.id %>">Reason (optional)</label>
+            <input id="reason-<%= d.id %>" type="text" name="reason" class="form-control form-control-sm" placeholder="Reason (optional)" maxlength="200" style="max-width:220px;">
+            <button class="btn btn-sm btn-outline-danger text-nowrap">Mark away</button>
+          </form>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,7 +1,6 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
-const bcrypt = require('bcryptjs');
 
 const DB_PATH = path.join(__dirname, 'data', 'communion.db');
 
@@ -190,6 +189,7 @@ function initSchema() {
 
   seedDefaults();
   runMigrations();
+  require('./core/schema').initCoreSchema(db);
 }
 
 function runMigrations() {
@@ -282,12 +282,6 @@ function seedDefaults() {
     }
   }
 
-  const hasAdmin = get('SELECT COUNT(*) as c FROM admins');
-  if (hasAdmin && hasAdmin.c === 0) {
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.run('INSERT INTO admins (name, email, password_hash, is_super) VALUES (?,?,?,1)',
-      ['Administrator', 'admin@mcleanpres.org', hash]);
-  }
 }
 
 function generateCommunionDates(year) {
