@@ -155,6 +155,18 @@ function initCoreSchema(db) {
     FOREIGN KEY (target_id) REFERENCES people(id) ON DELETE CASCADE
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS covered_slots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id INTEGER NOT NULL,
+    position_id INTEGER NOT NULL,
+    covered_by TEXT NOT NULL,
+    created_by INTEGER,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(event_id, position_id),
+    FOREIGN KEY (event_id) REFERENCES ministry_events(id) ON DELETE CASCADE,
+    FOREIGN KEY (position_id) REFERENCES positions(id)
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS assignment_changes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL,

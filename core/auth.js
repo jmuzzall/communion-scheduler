@@ -14,6 +14,7 @@ function loadPerson(req, res, next) {
   res.locals.roles = [];
   res.locals.isSuper = false;
   res.locals.canManageCommunion = false;
+  res.locals.canManagePrayer = false;
   res.locals.servesIn = [];
   res.locals.isStaging = staging.isStaging();
   const id = req.session && req.session.personId;
@@ -26,6 +27,7 @@ function loadPerson(req, res, next) {
       res.locals.roles = req.roles;
       res.locals.isSuper = req.roles.some(r => r.role === 'super');
       res.locals.canManageCommunion = canManage(req.roles, 'communion');
+      res.locals.canManagePrayer = canManage(req.roles, 'prayer');
       res.locals.servesIn = require('./eligibility').eligibleMinistries(person);
     } else {
       delete req.session.personId;

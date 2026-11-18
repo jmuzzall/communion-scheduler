@@ -13,10 +13,19 @@
         <% if (servesIn.includes('communion')) { %>
           <li class="nav-item"><a class="nav-link <%= page === 'communion' ? 'active' : '' %>" href="/communion">Communion</a></li>
         <% } %>
+        <% if (servesIn.includes('prayer')) { %>
+          <li class="nav-item"><a class="nav-link <%= page === 'prayer' ? 'active' : '' %>" href="/prayer">Prayer</a></li>
+        <% } %>
         <li class="nav-item"><a class="nav-link <%= page === 'swaps' ? 'active' : '' %>" href="/swaps">Swaps</a></li>
         <li class="nav-item"><a class="nav-link <%= page === 'profile' ? 'active' : '' %>" href="/me/profile">Profile</a></li>
-        <% if (canManageCommunion) { %>
-          <li class="nav-item"><a class="nav-link <%= page === 'schedule' ? 'active' : '' %>" href="/admin/communion">Schedule</a></li>
+        <% if (canManageCommunion || canManagePrayer) { %>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle <%= page === 'schedule' ? 'active' : '' %>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Schedule</a>
+            <ul class="dropdown-menu">
+              <% if (canManageCommunion) { %><li><a class="dropdown-item" href="/admin/communion">Communion</a></li><% } %>
+              <% if (canManagePrayer) { %><li><a class="dropdown-item" href="/admin/prayer">Prayer</a></li><% } %>
+            </ul>
+          </li>
         <% } %>
         <% if (isSuper) { %>
           <li class="nav-item"><a class="nav-link <%= page === 'people' ? 'active' : '' %>" href="/admin/people">People</a></li>

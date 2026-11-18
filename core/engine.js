@@ -45,10 +45,21 @@ function eventAssignments(eventId) {
 
 function eventSlots(event) {
   const assigned = eventAssignments(event.id);
+  const covers = new Map(all('SELECT * FROM covered_slots WHERE event_id = ?', [event.id]).map(c => [c.position_id, c]));
   return eventPositions(event).map(pos => {
     const people = assigned.filter(a => a.position_id === pos.id);
-    return { ...pos, assigned: people, filled: people.length, open: Math.max(0, pos.needed - people.length) };
+    const cover = covers.get(pos.id) || null;
+    return {
+      ...pos, assigned: people, filled: people.length,
+      covered: cover ? cover.covered_by : null,
+      open: cover ? 0 : Math.max(0, pos.needed - people.length),
+    };
   });
+}
+
+function coveredBy(eventId, positionId) {
+  const c = get('SELECT covered_by FROM covered_slots WHERE event_id = ? AND position_id = ?', [eventId, positionId]);
+  return c ? c.covered_by : null;
 }
 
 function dayAssignments(personId, serviceDayId) {
@@ -88,6 +99,8 @@ function signupProblem(person, event, position, { confirmOverlap = false } = {})
   if (!isEligible(person, event.ministry)) return { error: `You aren't on the ${MINISTRY_NAMES[event.ministry]} roster.` };
   if (!isOpen(event)) return { error: 'Sign-up for this Sunday is closed.' };
   if (!eventPositions(event).some(p => p.id === position.id)) return { error: 'That position is not part of this Sunday.' };
+  const cover = coveredBy(event.id, position.id);
+  if (cover) return { error: `${cover} is covering that slot, so no sign-up is needed.` };
   const mine = dayAssignments(person.id, event.service_day_id);
   if (mine.some(a => a.event_id === event.id && a.position_id === position.id)) return { error: "You're already signed up for that slot." };
   const sameMinistry = mine.find(a => a.ministry === event.ministry && positionsClash(a, position));
@@ -200,6 +213,8 @@ function staffAssign(actor, eventId, positionId, personId, allowConflict) {
   if (!event || !position || !person) return { error: 'Choose a person and a slot.' };
   if (!isEligible(person, event.ministry)) return { error: `${person.name} isn't on the ${MINISTRY_NAMES[event.ministry]} roster.` };
   if (!eventPositions(event).some(p => p.id === position.id)) return { error: 'That position is not part of this Sunday.' };
+  const cover = coveredBy(event.id, position.id);
+  if (cover) return { error: `${cover} is covering that slot. Remove the cover first to assign someone.` };
   const mine = dayAssignments(person.id, event.service_day_id);
   if (mine.some(a => a.event_id === event.id && a.position_id === position.id)) return { error: `${person.name} is already in that slot.` };
   const filled = get('SELECT COUNT(*) AS c FROM assignments WHERE event_id = ? AND position_id = ?', [event.id, position.id]).c;
@@ -238,6 +253,55 @@ function staffRemove(actor, assignmentId) {
     `${actor.name} removed you from ${MINISTRY_NAMES[event.ministry].toLowerCase()} on ${cal.formatLongDay(event.date)} (${describePosition(position)}).`,
   ], { url: `${appUrl()}/me`, label: 'View My Sundays' });
   return { ok: true, name: a.person_name };
+}
+
+// ─── Pastor-covered slots ───────────────────────────
+// Marks positions as covered (for example by a pastor). If anyone is already signed up for them,
+// returns { needsConfirm, affected } until the caller confirms; then removes and emails them.
+async function coverSlots(actor, eventId, positionIds, coverName, confirm) {
+  const event = getEvent(eventId);
+  if (!event) return { error: 'That Sunday was not found.' };
+  const name = String(coverName || '').trim().slice(0, 80);
+  if (!name) return { error: "Enter who's covering, for example Pastor Hart." };
+  const valid = eventPositions(event).filter(p => positionIds.map(Number).includes(p.id));
+  if (!valid.length) return { error: 'Choose at least one slot to cover.' };
+  const ids = valid.map(p => p.id);
+  const affected = eventAssignments(event.id).filter(a => ids.includes(a.position_id));
+  if (affected.length && !confirm) return { needsConfirm: true, affected, positions: valid, name };
+
+  transaction(() => {
+    for (const a of affected) {
+      run(`UPDATE swaps SET status = 'cancelled', reason = 'Slot covered by a pastor', resolved_at = datetime('now')
+           WHERE status = 'pending' AND (requester_assignment_id = ? OR target_assignment_id = ?)`, [a.id, a.id]);
+      run('DELETE FROM assignments WHERE id = ?', [a.id]);
+      logChange(event.id, a.id, actor.id, 'cover_remove', { person: a.person_name, position: describePosition(valid.find(p => p.id === a.position_id)) });
+    }
+    for (const p of valid) {
+      run('INSERT OR REPLACE INTO covered_slots (event_id, position_id, covered_by, created_by) VALUES (?,?,?,?)', [event.id, p.id, name, actor.id]);
+      logChange(event.id, null, actor.id, 'cover', { person: name, position: describePosition(p) });
+    }
+  });
+
+  for (const a of affected) {
+    const person = get('SELECT * FROM people WHERE id = ?', [a.person_id]);
+    const pos = valid.find(p => p.id === a.position_id);
+    await emailPerson(person, `No need to serve ${MINISTRY_NAMES[event.ministry]} on ${cal.formatDay(event.date)}`, [
+      `Hi ${person.name},`,
+      `${name} is covering ${MINISTRY_NAMES[event.ministry].toLowerCase()} on ${cal.formatLongDay(event.date)} (${describePosition(pos)}), so you've been taken off that slot. Thank you for signing up.`,
+    ], { url: `${appUrl()}/me`, label: 'View My Sundays' });
+  }
+  return { ok: true, count: valid.length, removed: affected.length };
+}
+
+function uncoverSlot(actor, eventId, positionId) {
+  const cover = get('SELECT * FROM covered_slots WHERE event_id = ? AND position_id = ?', [eventId, positionId]);
+  if (!cover) return { error: 'That slot is not covered.' };
+  const position = get('SELECT * FROM positions WHERE id = ?', [positionId]);
+  transaction(() => {
+    run('DELETE FROM covered_slots WHERE id = ?', [cover.id]);
+    logChange(Number(eventId), null, actor.id, 'uncover', { person: cover.covered_by, position: describePosition(position) });
+  });
+  return { ok: true };
 }
 
 // ─── Swaps ──────────────────────────────────────────
@@ -332,7 +396,7 @@ async function acceptSwap(person, swapId) {
     `${requester.name} and ${person.name} swapped ${ministry.toLowerCase()} Sundays.`,
     `${person.name} now serves ${cal.formatLongDay(reqA.date)} (${describePosition(reqA)}).`,
     `${requester.name} now serves ${cal.formatLongDay(tgtA.date)} (${describePosition(tgtA)}).`,
-  ], { url: `${appUrl()}/admin/communion`, label: 'Open the schedule' });
+  ], { url: `${appUrl()}/admin/${reqA.ministry}`, label: 'Open the schedule' });
   return { ok: true };
 }
 
@@ -375,6 +439,6 @@ function upcomingFor(personId, fromIso, toIso) {
 module.exports = {
   SIGNUP_WINDOW_MONTHS, positionsClash, describePosition, getEvent, eventPositions, eventSlots, eventAssignments,
   dayAssignments, awayStatus, isOpen, upcomingEvents, signupProblem, claim, withdraw, optIn,
-  autofill, sendAssignmentNotices, staffAssign, staffRemove,
+  autofill, sendAssignmentNotices, staffAssign, staffRemove, coverSlots, uncoverSlot,
   swapCandidates, proposeSwap, acceptSwap, declineSwap, cancelSwap, swapsFor, upcomingFor, assignmentDetail,
 };

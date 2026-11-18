@@ -15,7 +15,12 @@
     <% events.forEach(e => { %>
       <a href="/<%= ministry %>/<%= e.id %>" class="list-group-item list-group-item-action d-flex flex-wrap align-items-center gap-2">
         <strong style="min-width:150px;"><%= e.display %></strong>
-        <span class="small text-muted"><%= e.filled %> of <%= e.needed %> filled</span>
+        <% if (e.allCovered) { %>
+          <span class="badge covered"><%= e.covers.join(', ') %> <%= ministry === 'prayer' ? 'praying' : 'covering' %></span>
+        <% } else { %>
+          <span class="small text-muted"><%= e.filled %> of <%= e.needed %> filled</span>
+          <% if (e.covers.length) { %><span class="badge covered"><%= e.covers.join(', ') %> covering some slots</span><% } %>
+        <% } %>
         <% if (e.mine.length) { %>
           <span class="badge bg-success">You: <%= e.mine.join('; ') %></span>
         <% } else if (e.away.blocked) { %>

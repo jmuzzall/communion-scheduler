@@ -185,6 +185,12 @@ h1, h2, h3, h4, h5, .navbar-brand {
   border-color: #c0392b;
 }
 
+.badge.covered {
+  background: #f3e7cf;
+  color: #7a5717;
+  font-weight: 600;
+}
+
 .btn-admin-corner {
   font-size: 0.78rem;
   font-weight: 600;

@@ -1,0 +1,25 @@
+<%- include('../partials/head', { title: 'Confirm Cover' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5" style="max-width:720px;">
+  <a href="/admin/<%= ministry %>/<%= event.id %>" class="small"><i class="bi bi-arrow-left"></i> Back without changing anything</a>
+  <h2 class="mt-2 mb-1">Confirm: <%= coverName %> covering <%= name.toLowerCase() %></h2>
+  <p class="text-muted"><%= display %></p>
+
+  <div class="alert alert-warning">
+    <strong>These elders are already signed up for slots you're covering.</strong> They'll be taken off those slots and emailed that they don't need to serve.
+    <ul class="mb-0 mt-2">
+      <% affected.forEach(a => { %><li><%= a.name %>: <%= a.label %></li><% }) %>
+    </ul>
+  </div>
+
+  <form method="POST" action="/admin/<%= ministry %>/<%= event.id %>/cover" class="d-flex gap-2">
+    <input type="hidden" name="covered_by" value="<%= coverName %>">
+    <input type="hidden" name="confirm" value="1">
+    <% positions.forEach(p => { %><input type="hidden" name="position_ids" value="<%= p.id %>"><% }) %>
+    <button class="btn btn-gold">Cover <%= positions.length %> slot<%= positions.length === 1 ? '' : 's' %> and email <%= affected.length %> <%= affected.length === 1 ? 'person' : 'people' %></button>
+    <a href="/admin/<%= ministry %>/<%= event.id %>" class="btn btn-outline-secondary">Cancel</a>
+  </form>
+</div>
+
+<%- include('../partials/footer') %>

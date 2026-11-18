@@ -34,7 +34,9 @@ app.use(require('./core/auth').loadPerson);
 
 app.use('/admin/people', require('./routes/people'));
 app.use('/admin/communion', adminScheduleRouter('communion'));
+app.use('/admin/prayer', adminScheduleRouter('prayer'));
 app.use('/communion', signupRouter('communion'));
+app.use('/prayer', signupRouter('prayer'));
 app.use('/swaps', require('./routes/swaps'));
 app.use('/', require('./routes/hub'));
 
@@ -42,6 +44,7 @@ async function start() {
   await getDb();
   require('./core/calendar').ensureSundays(15);
   require('./core/calendar').ensureCommunionEvents(15);
+  require('./core/calendar').ensureWeeklyEvents('prayer', 15);
   require('./core/reminders').startReminders();
 
   app.listen(PORT, () => {

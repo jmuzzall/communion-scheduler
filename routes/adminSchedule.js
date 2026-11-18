@@ -7,6 +7,9 @@ const engine = require('../core/engine');
 const cal = require('../core/calendar');
 const { isEligible, MINISTRY_NAMES } = require('../core/eligibility');
 
+// Ministries where staff can mark slots as covered (a pastor praying).
+const COVERABLE = ['prayer'];
+
 function adminScheduleRouter(ministry) {
   const router = express.Router();
   const name = MINISTRY_NAMES[ministry];
@@ -18,10 +21,11 @@ function adminScheduleRouter(ministry) {
     const today = cal.todayIso();
     const events = engine.upcomingEvents(ministry, cal.addDays(today, -62), cal.addMonths(today, 6)).map(e => {
       const slots = engine.eventSlots(e);
+      const covers = [...new Set(slots.filter(s => s.covered).map(s => s.covered))];
       return {
         ...e, display: cal.formatDay(e.date), past: e.date < today, open: engine.isOpen(e),
-        filled: slots.reduce((n, s) => n + s.filled, 0), needed: slots.reduce((n, s) => n + s.needed, 0),
-        autofillOn: cal.formatDay(cal.autofillDate(e.date)),
+        filled: slots.reduce((n, s) => n + s.filled, 0), needed: slots.filter(s => !s.covered).reduce((n, s) => n + s.needed, 0),
+        covers, autofillOn: cal.formatDay(cal.autofillDate(e.date)),
       };
     });
     res.render('hub/admin-events', { page: 'schedule', ministry, name, events, success: req.query.success || null, error: req.query.error || null });
@@ -50,7 +54,7 @@ function adminScheduleRouter(ministry) {
     const awayPeople = all(`SELECT p.name, u.reason FROM unavailability u JOIN people p ON p.id = u.person_id WHERE u.service_day_id = ? ORDER BY p.name`,
       [event.service_day_id]).filter(u => people.some(p => p.name === u.name));
     res.render('hub/admin-event', {
-      page: 'schedule', ministry, name, event, slots, changes, awayPeople,
+      page: 'schedule', ministry, name, event, slots, changes, awayPeople, allowCover: COVERABLE.includes(ministry),
       display: cal.formatLongDay(event.date), open: engine.isOpen(event), autofillOn: cal.formatDay(cal.autofillDate(event.date)),
       success: req.query.success || null, error: req.query.error || null,
     });
@@ -61,6 +65,30 @@ function adminScheduleRouter(ministry) {
     const result = engine.staffAssign(req.person, req.params.eventId, req.body.position_id, req.body.person_id, req.body.allow_conflict === 'on');
     if (result.error) return back(res, path, 'error', result.error);
     back(res, path, 'success', result.warning ? `Assigned. ${result.warning}` : 'Assigned.');
+  });
+
+  router.post('/:eventId(\\d+)/cover', async (req, res) => {
+    const path = `/${req.params.eventId}`;
+    if (!COVERABLE.includes(ministry)) return back(res, path, 'error', 'Slots in this ministry cannot be covered.');
+    const positionIds = [].concat(req.body.position_ids || []);
+    const result = await engine.coverSlots(req.person, req.params.eventId, positionIds, req.body.covered_by, req.body.confirm === '1');
+    if (result.error) return back(res, path, 'error', result.error);
+    if (result.needsConfirm) {
+      const event = engine.getEvent(req.params.eventId);
+      return res.render('hub/admin-cover-confirm', {
+        page: 'schedule', ministry, name, event, display: cal.formatLongDay(event.date), coverName: result.name,
+        positions: result.positions.map(p => ({ id: p.id, label: engine.describePosition(p) })),
+        affected: result.affected.map(a => ({ name: a.person_name, label: engine.describePosition(result.positions.find(p => p.id === a.position_id)) })),
+      });
+    }
+    back(res, path, 'success', `${result.count} slot${result.count === 1 ? '' : 's'} marked covered.${result.removed ? ` ${result.removed} ${result.removed === 1 ? 'person was' : 'people were'} taken off and emailed.` : ''}`);
+  });
+
+  router.post('/:eventId(\\d+)/uncover/:positionId(\\d+)', (req, res) => {
+    const path = `/${req.params.eventId}`;
+    const result = engine.uncoverSlot(req.person, req.params.eventId, req.params.positionId);
+    if (result.error) return back(res, path, 'error', result.error);
+    back(res, path, 'success', 'Cover removed. The slot is open for sign-up again.');
   });
 
   router.post('/remove/:assignmentId(\\d+)', (req, res) => {
@@ -91,6 +119,7 @@ function adminScheduleRouter(ministry) {
     ];
     ws.getRow(1).font = { bold: true };
     for (const slot of engine.eventSlots(event)) {
+      if (slot.covered) ws.addRow({ time: slot.service_time, campus: slot.campus, area: slot.area, name: `${slot.covered} (covering)` });
       for (const a of slot.assigned) ws.addRow({ time: slot.service_time, campus: slot.campus, area: slot.area, name: a.person_name, email: a.person_email });
       for (let i = 0; i < slot.open; i++) ws.addRow({ time: slot.service_time, campus: slot.campus, area: slot.area, name: '(open)' });
     }

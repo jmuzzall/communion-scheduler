@@ -158,7 +158,7 @@ router.get('/me', requirePerson, (req, res) => {
   const away = new Map(all('SELECT * FROM unavailability WHERE person_id = ?', [req.person.id]).map(u => [u.service_day_id, u]));
   const duties = engine.upcomingFor(req.person.id, today, until);
   const pendingSwaps = all("SELECT COUNT(*) AS c FROM swaps WHERE target_id = ? AND status = 'pending'", [req.person.id])[0].c;
-  const openSignups = ['communion'].filter(m => eligibleMinistries(req.person).includes(m)).map(m => {
+  const openSignups = ['communion', 'prayer'].filter(m => eligibleMinistries(req.person).includes(m)).map(m => {
     const events = engine.upcomingEvents(m, today, addMonths(today, engine.SIGNUP_WINDOW_MONTHS)).filter(engine.isOpen)
       .filter(e => !engine.eventAssignments(e.id).some(a => a.person_id === req.person.id))
       .filter(e => engine.eventSlots(e).some(s => s.open > 0));

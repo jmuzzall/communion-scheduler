@@ -30,7 +30,14 @@
         <div class="card border-0 shadow-sm h-100">
           <div class="card-header bg-navy"><strong><%= slot.service_time %></strong> · <%= slot.campus %> <%= slot.area %></div>
           <div class="card-body">
+            <% if (slot.covered) { %>
+              <p class="mb-2"><span class="badge covered"><%= slot.covered %> <%= ministry === 'prayer' ? 'praying' : 'covering' %></span></p>
+              <form method="POST" action="/admin/<%= ministry %>/<%= event.id %>/uncover/<%= slot.id %>">
+                <button class="btn btn-sm btn-outline-secondary">Remove cover</button>
+              </form>
+            <% } else { %>
             <p class="mb-2 <%= slot.open ? 'text-danger' : 'text-muted' %>"><%= slot.filled %> of <%= slot.needed %> filled</p>
+            <% } %>
             <% slot.assigned.forEach(a => { %>
               <div class="slot-badge">
                 <%= a.person_name %>
@@ -61,6 +68,33 @@
       </div>
     <% }) %>
   </div>
+
+  <% if (allowCover && slots.some(s => !s.covered)) { %>
+    <div class="card border-0 shadow-sm mt-4">
+      <div class="card-header bg-white fw-bold"><i class="bi bi-person-check"></i> A pastor is praying this Sunday</div>
+      <div class="card-body">
+        <p class="small text-muted">Covered slots disappear from sign-up, auto-fill and reminder emails, and elders see who's praying. Anyone already signed up for a covered slot is taken off and emailed; you'll confirm first.</p>
+        <form method="POST" action="/admin/<%= ministry %>/<%= event.id %>/cover">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+              <label class="form-label small" for="coveredBy">Who's praying</label>
+              <input id="coveredBy" type="text" name="covered_by" class="form-control" placeholder="Pastor Hart" maxlength="80" required>
+            </div>
+            <div class="col-md-6">
+              <span class="form-label small d-block">Slots</span>
+              <% slots.filter(s => !s.covered).forEach(s => { %>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="cover-<%= s.id %>" name="position_ids" value="<%= s.id %>" checked>
+                  <label class="form-check-label small" for="cover-<%= s.id %>"><%= s.label %></label>
+                </div>
+              <% }) %>
+            </div>
+            <div class="col-md-2"><button class="btn btn-gold w-100">Mark covered</button></div>
+          </div>
+        </form>
+      </div>
+    </div>
+  <% } %>
 
   <div class="row g-4 mt-1">
     <div class="col-lg-4">

@@ -6,7 +6,7 @@ const engine = require('./engine');
 const { isEligible, MINISTRY_NAMES } = require('./eligibility');
 const { emailPerson, appUrl } = require('./notify');
 
-const SIGNUP_MINISTRIES = ['communion'];
+const SIGNUP_MINISTRIES = ['communion', 'prayer'];
 const SEND_HOUR = 9;
 const AUTOFILL_HOUR = 12;
 const CHECK_MS = 15 * 60 * 1000;
@@ -115,6 +115,7 @@ async function tick() {
   try {
     cal.ensureSundays(15);
     cal.ensureCommunionEvents(15);
+    cal.ensureWeeklyEvents('prayer', 15);
     await runAutofills(now);
     await personalReminders(now);
     await twoWeekNudges(now);
@@ -130,4 +131,4 @@ function startReminders() {
   console.log('[Reminders] Checking every 15 minutes (Eastern time)');
 }
 
-module.exports = { startReminders, tick, runAutofills, personalReminders, twoWeekNudges, monthlyDigest };
+module.exports = { startReminders, tick, runAutofills, personalReminders, twoWeekNudges, monthlyDigest, SIGNUP_MINISTRIES };

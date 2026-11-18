@@ -24,7 +24,9 @@ function signupRouter(ministry) {
         .map(a => engine.describePosition(slots.find(s => s.id === a.position_id) || {}));
       return {
         ...e, display: cal.formatDay(e.date), open: engine.isOpen(e), mine,
-        filled: slots.reduce((n, s) => n + s.filled, 0), needed: slots.reduce((n, s) => n + s.needed, 0),
+        covers: [...new Set(slots.filter(s => s.covered).map(s => s.covered))],
+        allCovered: slots.length > 0 && slots.every(s => s.covered),
+        filled: slots.reduce((n, s) => n + s.filled, 0), needed: slots.filter(s => !s.covered).reduce((n, s) => n + s.needed, 0),
         away: engine.awayStatus(req.person.id, e.service_day_id, ministry),
       };
     });

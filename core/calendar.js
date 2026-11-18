@@ -66,6 +66,17 @@ function ensureCommunionEvents(monthsAhead = 15) {
   });
 }
 
+// One regular event for the ministry on every Sunday (prayer).
+function ensureWeeklyEvents(ministry, monthsAhead = 15) {
+  ensureSundays(monthsAhead);
+  transaction(() => {
+    for (const day of all('SELECT id FROM service_days WHERE date >= ? AND label IS NULL', [todayIso()])) {
+      const exists = get("SELECT id FROM ministry_events WHERE ministry = ? AND kind = 'regular' AND service_day_id = ?", [ministry, day.id]);
+      if (!exists) run("INSERT INTO ministry_events (ministry, service_day_id, kind) VALUES (?, ?, 'regular')", [ministry, day.id]);
+    }
+  });
+}
+
 function upcomingServiceDays(fromIso, weeks) {
   return all('SELECT * FROM service_days WHERE date >= ? AND date <= ? ORDER BY date', [fromIso, addDays(fromIso, weeks * 7)]);
 }
@@ -79,6 +90,6 @@ function formatLongDay(iso) {
 }
 
 module.exports = {
-  ensureSundays, ensureCommunionEvents, upcomingServiceDays, formatDay, formatLongDay,
+  ensureSundays, ensureCommunionEvents, ensureWeeklyEvents, upcomingServiceDays, formatDay, formatLongDay,
   todayIso, nowEastern, isoDate, addDays, addMonths, autofillDate,
 };

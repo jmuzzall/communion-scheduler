@@ -37,15 +37,17 @@
         <% if (slot.campus === preferred) { %><span class="badge bg-success ms-1" style="font-size:.65rem;">Your preferred campus</span><% } %>
       </h6>
     <% } %>
-    <div class="card border-0 shadow-sm mb-2 <%= (!slot.myAssignment && (slot.blockedBy || away.blocked)) ? 'slot-excluded' : '' %>">
+    <div class="card border-0 shadow-sm mb-2 <%= (!slot.myAssignment && !slot.covered && (slot.blockedBy || away.blocked)) ? 'slot-excluded' : '' %>">
       <div class="card-body py-2">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
           <div>
             <strong><%= slot.service_time %></strong> · <%= slot.area %>
-            <div class="small text-muted"><%= slot.filled %> of <%= slot.needed %> filled</div>
+            <% if (!slot.covered) { %><div class="small text-muted"><%= slot.filled %> of <%= slot.needed %> filled</div><% } %>
           </div>
           <div>
-            <% if (slot.myAssignment) { %>
+            <% if (slot.covered) { %>
+              <span class="badge covered"><%= slot.covered %> <%= ministry === 'prayer' ? 'praying' : 'covering' %></span>
+            <% } else if (slot.myAssignment) { %>
               <span class="badge bg-success">Signed up</span>
               <% if (open && slot.myAssignment.type === 'voluntary') { %>
                 <form method="POST" action="/<%= ministry %>/withdraw/<%= slot.myAssignment.id %>" class="d-inline ms-1">
