@@ -4,9 +4,11 @@
 <div class="container mt-4 mb-5">
   <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
   <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
-
   <% if (!person.password_hash) { %>
     <div class="alert alert-light border small">You signed in with an emailed link. To sign in with a password next time, <a href="/me/profile">set one on your profile</a>. This is optional.</div>
+  <% } %>
+  <% if (pendingSwaps) { %>
+    <div class="alert alert-warning"><i class="bi bi-arrow-left-right"></i> <%= pendingSwaps %> swap request<%= pendingSwaps === 1 ? ' is' : 's are' %> waiting for your answer. <a href="/swaps" class="alert-link">Review</a></div>
   <% } %>
 
   <h2 class="mb-1">My Sundays</h2>
@@ -20,7 +22,9 @@
       <% } else { %>
         <span class="small text-muted">No ministries yet. An administrator sets this from the officer roster.</span>
       <% } %>
-      <span class="ms-auto small text-muted">Sign-ups and assignments will appear here as each ministry moves into MPC Officer Service.</span>
+      <% openSignups.filter(o => o.count).forEach(o => { %>
+        <a class="btn btn-sm btn-gold ms-auto" href="/<%= o.ministry %>"><%= o.count %> <%= o.name.toLowerCase() %> Sunday<%= o.count === 1 ? '' : 's' %> open for sign-up</a>
+      <% }) %>
     </div>
   </div>
 
@@ -32,6 +36,12 @@
         <div style="min-width:150px;">
           <strong><%= d.display %></strong>
           <% if (d.label) { %><span class="badge bg-warning text-dark ms-1"><%= d.label %></span><% } %>
+        </div>
+        <div class="d-flex flex-column gap-1">
+          <% d.duties.forEach(a => { %>
+            <span class="small"><span class="badge bg-light text-dark border"><%= a.ministry %></span> <%= a.label %>
+              <a class="ms-1 small" href="/swaps/new/<%= a.id %>">Swap</a></span>
+          <% }) %>
         </div>
         <% if (d.away) { %>
           <span class="badge bg-secondary">Away</span>

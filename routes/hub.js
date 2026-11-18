@@ -7,7 +7,8 @@ const { requirePerson, hasSuperAdmin } = require('../core/auth');
 const staging = require('../core/staging');
 const { sendEmail } = require('../services/mailer');
 const { eligibleMinistries, MINISTRY_NAMES } = require('../core/eligibility');
-const { upcomingServiceDays, formatDay, todayIso } = require('../core/calendar');
+const { upcomingServiceDays, formatDay, todayIso, addMonths } = require('../core/calendar');
+const engine = require('../core/engine');
 const { CAMPUSES } = require('../core/schema');
 
 const MIN_PASSWORD = 8;
@@ -153,11 +154,26 @@ router.get('/signout', (req, res) => {
 router.get('/me', requirePerson, (req, res) => {
   const today = todayIso();
   const days = upcomingServiceDays(today, 13);
+  const until = days.length ? days[days.length - 1].date : today;
   const away = new Map(all('SELECT * FROM unavailability WHERE person_id = ?', [req.person.id]).map(u => [u.service_day_id, u]));
+  const duties = engine.upcomingFor(req.person.id, today, until);
+  const pendingSwaps = all("SELECT COUNT(*) AS c FROM swaps WHERE target_id = ? AND status = 'pending'", [req.person.id])[0].c;
+  const openSignups = ['communion'].filter(m => eligibleMinistries(req.person).includes(m)).map(m => {
+    const events = engine.upcomingEvents(m, today, addMonths(today, engine.SIGNUP_WINDOW_MONTHS)).filter(engine.isOpen)
+      .filter(e => !engine.eventAssignments(e.id).some(a => a.person_id === req.person.id))
+      .filter(e => engine.eventSlots(e).some(s => s.open > 0));
+    return { ministry: m, name: MINISTRY_NAMES[m], count: events.length };
+  });
   res.render('hub/me', {
     page: 'me',
-    days: days.map(d => ({ ...d, display: formatDay(d.date), away: away.get(d.id) || null })),
+    days: days.map(d => ({
+      ...d, display: formatDay(d.date), away: away.get(d.id) || null,
+      duties: duties.filter(a => a.date === d.date).map(a => ({
+        id: a.id, ministry: MINISTRY_NAMES[a.ministry], ministryKey: a.ministry, label: engine.describePosition(a),
+      })),
+    })),
     ministries: eligibleMinistries(req.person).map(k => MINISTRY_NAMES[k]),
+    openSignups, pendingSwaps,
     success: req.query.success || null,
     error: req.query.error || null,
   });

@@ -10,7 +10,14 @@
     <div class="collapse navbar-collapse" id="hubNav">
       <ul class="navbar-nav me-auto">
         <li class="nav-item"><a class="nav-link <%= page === 'me' ? 'active' : '' %>" href="/me">My Sundays</a></li>
+        <% if (servesIn.includes('communion')) { %>
+          <li class="nav-item"><a class="nav-link <%= page === 'communion' ? 'active' : '' %>" href="/communion">Communion</a></li>
+        <% } %>
+        <li class="nav-item"><a class="nav-link <%= page === 'swaps' ? 'active' : '' %>" href="/swaps">Swaps</a></li>
         <li class="nav-item"><a class="nav-link <%= page === 'profile' ? 'active' : '' %>" href="/me/profile">Profile</a></li>
+        <% if (canManageCommunion) { %>
+          <li class="nav-item"><a class="nav-link <%= page === 'schedule' ? 'active' : '' %>" href="/admin/communion">Schedule</a></li>
+        <% } %>
         <% if (isSuper) { %>
           <li class="nav-item"><a class="nav-link <%= page === 'people' ? 'active' : '' %>" href="/admin/people">People</a></li>
         <% } %>

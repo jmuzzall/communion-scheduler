@@ -3,8 +3,9 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const path = require('path');
-const { getDb, generateCommunionDates } = require('./db');
-const { startReminderScheduler } = require('./services/reminderScheduler');
+const { getDb } = require('./db');
+const { signupRouter } = require('./routes/signup');
+const { adminScheduleRouter } = require('./routes/adminSchedule');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,21 +33,16 @@ app.use(session({
 app.use(require('./core/auth').loadPerson);
 
 app.use('/admin/people', require('./routes/people'));
+app.use('/admin/communion', adminScheduleRouter('communion'));
+app.use('/communion', signupRouter('communion'));
+app.use('/swaps', require('./routes/swaps'));
 app.use('/', require('./routes/hub'));
-
-// Communion pages from communion-scheduler, kept until the Communion module moves onto the shared model.
-app.use('/admin', require('./routes/admin'));
-app.use('/member', require('./routes/member'));
 
 async function start() {
   await getDb();
   require('./core/calendar').ensureSundays(15);
-
-  const currentYear = new Date().getFullYear();
-  generateCommunionDates(currentYear);
-  generateCommunionDates(currentYear + 1);
-
-  startReminderScheduler();
+  require('./core/calendar').ensureCommunionEvents(15);
+  require('./core/reminders').startReminders();
 
   app.listen(PORT, () => {
     const staging = require('./core/staging');
@@ -55,4 +51,4 @@ async function start() {
   });
 }
 
-start().catch(console.error);
+start().catch(err => { console.error(err); process.exit(1); });

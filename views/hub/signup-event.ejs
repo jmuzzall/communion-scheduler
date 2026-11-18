@@ -1,0 +1,82 @@
+<%- include('../partials/head', { title: name + ' Sign-up' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <a href="/<%= ministry %>" class="small"><i class="bi bi-arrow-left"></i> All <%= name.toLowerCase() %> Sundays</a>
+  <h2 class="mt-2 mb-1"><%= name %></h2>
+  <p class="text-muted mb-3"><%= display %> · <%= open ? 'Sign-up is open' : 'Sign-up is closed' %></p>
+
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <% if (confirm) { %>
+    <div class="alert alert-warning">
+      <strong><%= confirm.warning %></strong> You can serve both if you'd like.
+      <form method="POST" action="/<%= ministry %>/<%= event.id %>/claim" class="d-inline ms-2">
+        <input type="hidden" name="position_id" value="<%= confirm.positionId %>">
+        <input type="hidden" name="confirm_overlap" value="1">
+        <button class="btn btn-sm btn-gold">Sign up for both</button>
+      </form>
+      <a href="/<%= ministry %>/<%= event.id %>" class="btn btn-sm btn-outline-secondary ms-1">Cancel</a>
+    </div>
+  <% } %>
+
+  <% if (away.blocked && open) { %>
+    <div class="alert alert-secondary">
+      You marked this Sunday away<%= away.reason ? ` (${away.reason})` : '' %>.
+      <form method="POST" action="/<%= ministry %>/<%= event.id %>/opt-in" class="d-inline ms-2">
+        <button class="btn btn-sm btn-outline-primary">I can serve <%= name.toLowerCase() %> this Sunday</button>
+      </form>
+    </div>
+  <% } %>
+
+  <% let lastCampus = null; %>
+  <% slots.forEach(slot => { %>
+    <% if (slot.campus !== lastCampus) { lastCampus = slot.campus; %>
+      <h6 class="mt-4 mb-2 text-muted"><i class="bi bi-geo-alt"></i> <%= slot.campus %>
+        <% if (slot.campus === preferred) { %><span class="badge bg-success ms-1" style="font-size:.65rem;">Your preferred campus</span><% } %>
+      </h6>
+    <% } %>
+    <div class="card border-0 shadow-sm mb-2 <%= (!slot.myAssignment && (slot.blockedBy || away.blocked)) ? 'slot-excluded' : '' %>">
+      <div class="card-body py-2">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div>
+            <strong><%= slot.service_time %></strong> · <%= slot.area %>
+            <div class="small text-muted"><%= slot.filled %> of <%= slot.needed %> filled</div>
+          </div>
+          <div>
+            <% if (slot.myAssignment) { %>
+              <span class="badge bg-success">Signed up</span>
+              <% if (open && slot.myAssignment.type === 'voluntary') { %>
+                <form method="POST" action="/<%= ministry %>/withdraw/<%= slot.myAssignment.id %>" class="d-inline ms-1">
+                  <button class="btn btn-sm btn-outline-danger">Withdraw</button>
+                </form>
+              <% } else { %>
+                <a class="btn btn-sm btn-outline-primary ms-1" href="/swaps/new/<%= slot.myAssignment.id %>">Swap</a>
+              <% } %>
+            <% } else if (!open) { %>
+              <span class="badge bg-secondary">Closed</span>
+            <% } else if (slot.blockedBy) { %>
+              <span class="badge bg-secondary text-wrap" title="You can serve one role at a time">Serving at <%= slot.blockedBy %></span>
+            <% } else if (away.blocked) { %>
+              <span class="badge bg-secondary">Away</span>
+            <% } else if (slot.open === 0) { %>
+              <span class="badge bg-secondary">Full</span>
+            <% } else { %>
+              <% if (slot.overlapWith) { %><span class="small text-warning me-1" title="Same time as another duty">Also <%= slot.overlapWith %></span><% } %>
+              <form method="POST" action="/<%= ministry %>/<%= event.id %>/claim" class="d-inline">
+                <input type="hidden" name="position_id" value="<%= slot.id %>">
+                <button class="btn btn-sm btn-gold">Sign up</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+        <% if (slot.assigned.length) { %>
+          <div class="mt-2"><% slot.assigned.forEach(a => { %><span class="slot-badge"><%= a.person_name %></span><% }) %></div>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('../partials/footer') %>

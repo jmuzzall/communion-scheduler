@@ -1,5 +1,4 @@
 const nodemailer = require('nodemailer');
-const { get, run } = require('../db');
 const staging = require('../core/staging');
 
 let transporter;
@@ -20,21 +19,13 @@ function getTransporter() {
         console.log('--- EMAIL ---');
         console.log('To:', opts.to);
         console.log('Subject:', opts.subject);
-        console.log('Text:', opts.text?.substring(0, 200));
+        console.log('Text:', opts.text);
         console.log('--- END ---');
         return { messageId: 'console-' + Date.now() };
       }
     };
   }
   return transporter;
-}
-
-function renderTemplate(templateStr, vars) {
-  let result = templateStr;
-  for (const [key, value] of Object.entries(vars)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || '');
-  }
-  return result;
 }
 
 async function sendEmail(to, subject, html, text) {
@@ -96,30 +87,6 @@ async function sendSms(phone, text) {
   }
 }
 
-async function sendNotification(member, templateKey, vars, communionDateId) {
-  const template = get('SELECT * FROM notification_templates WHERE template_key = ?', [templateKey]);
-  if (!template) {
-    console.error('[Mailer] Template not found:', templateKey);
-    return;
-  }
-
-  const subject = renderTemplate(template.subject, vars);
-  const html = renderTemplate(template.body_html, vars);
-  const text = renderTemplate(template.body_text, vars);
-
-  if (member.notify_email && member.email) {
-    const result = await sendEmail(member.email, subject, html, text);
-    run('INSERT INTO notification_log (member_id, communion_date_id, notification_type, channel, status, error_message) VALUES (?,?,?,?,?,?)',
-      [member.id, communionDateId, templateKey, 'email', result.success ? 'sent' : 'failed', result.error || null]);
-  }
-
-  if (member.notify_sms && member.phone) {
-    const result = await sendSms(member.phone, text);
-    run('INSERT INTO notification_log (member_id, communion_date_id, notification_type, channel, status, error_message) VALUES (?,?,?,?,?,?)',
-      [member.id, communionDateId, templateKey, 'sms', result.success ? 'sent' : 'failed', result.error || null]);
-  }
-}
-
 function wrapHtmlEmail(title, bodyContent) {
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -135,11 +102,11 @@ function wrapHtmlEmail(title, bodyContent) {
 ${bodyContent}
 </td></tr>
 <tr><td style="background:#f7f4ee;padding:16px 32px;text-align:center;font-size:12px;color:#6b7280;">
-Communion Server Scheduling System
+MPC Officer Service
 </td></tr>
 </table>
 </td></tr></table>
 </body></html>`;
 }
 
-module.exports = { sendEmail, sendSms, sendNotification, renderTemplate };
+module.exports = { sendEmail, sendSms };

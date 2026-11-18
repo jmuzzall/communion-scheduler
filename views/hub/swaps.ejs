@@ -1,0 +1,51 @@
+<%- include('../partials/head', { title: 'Swaps' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <h2 class="mb-1">Swaps</h2>
+  <p class="text-muted">To swap a Sunday, choose <strong>Swap</strong> next to one of your duties on <a href="/me">My Sundays</a>. You can trade with anyone in the same ministry, on any upcoming Sunday.</p>
+
+  <h5 class="mt-4">Waiting for your answer</h5>
+  <% if (!incoming.length) { %><p class="text-muted small">None.</p><% } %>
+  <% incoming.forEach(s => { %>
+    <div class="card border-0 shadow-sm mb-2 trade-pending">
+      <div class="card-body">
+        <div><strong><%= s.requester_name %></strong> offers <strong><%= s.requester_slot %></strong> for your <strong><%= s.target_slot %></strong> (<%= s.ministry_name %>).</div>
+        <% if (s.message) { %><div class="small text-muted mt-1">"<%= s.message %>"</div><% } %>
+        <div class="mt-2 d-flex gap-2">
+          <form method="POST" action="/swaps/<%= s.id %>/accept"><button class="btn btn-sm btn-gold">Accept</button></form>
+          <form method="POST" action="/swaps/<%= s.id %>/decline"><button class="btn btn-sm btn-outline-secondary">Decline</button></form>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+
+  <h5 class="mt-4">Your requests</h5>
+  <% if (!outgoing.length) { %><p class="text-muted small">None.</p><% } %>
+  <% outgoing.forEach(s => { %>
+    <div class="card border-0 shadow-sm mb-2 trade-pending">
+      <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>Your <strong><%= s.requester_slot %></strong> for <%= s.target_name %>'s <strong><%= s.target_slot %></strong> (<%= s.ministry_name %>), waiting on <%= s.target_name %></div>
+        <form method="POST" action="/swaps/<%= s.id %>/cancel"><button class="btn btn-sm btn-outline-danger">Cancel request</button></form>
+      </div>
+    </div>
+  <% }) %>
+
+  <% if (past.length) { %>
+    <h5 class="mt-4">Recent</h5>
+    <div class="list-group">
+      <% past.forEach(s => { %>
+        <div class="list-group-item small trade-<%= s.status %>">
+          <span class="badge bg-light text-dark border"><%= s.status %></span>
+          <%= s.requester_name %>'s <%= s.requester_slot %> for <%= s.target_name %>'s <%= s.target_slot %>
+          <% if (s.reason) { %><div class="text-muted"><%= s.reason %></div><% } %>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

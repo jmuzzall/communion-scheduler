@@ -1,0 +1,29 @@
+<%- include('../partials/head', { title: name + ' Schedule' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <h2 class="mb-1"><%= name %> schedule</h2>
+  <p class="text-muted">Sign-up opens automatically three months ahead. Open slots are filled automatically on the Friday of the week before each Sunday.</p>
+
+  <div class="table-responsive">
+    <table class="table table-hover align-middle bg-white shadow-sm">
+      <thead><tr><th>Sunday</th><th>Filled</th><th>Status</th><th>Auto-fill</th><th></th></tr></thead>
+      <tbody>
+        <% events.forEach(e => { %>
+          <tr class="<%= e.past ? 'text-muted' : '' %>">
+            <td><strong><%= e.display %></strong></td>
+            <td><span class="<%= !e.past && e.filled < e.needed ? 'text-danger fw-bold' : '' %>"><%= e.filled %> / <%= e.needed %></span></td>
+            <td><%= e.past ? 'Past' : (e.status === 'filled' ? 'Filled, sign-up closed' : (e.open ? 'Open for sign-up' : 'Not open yet')) %></td>
+            <td class="small"><%= e.status === 'filled' || e.past ? '—' : e.autofillOn %></td>
+            <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/admin/<%= ministry %>/<%= e.id %>">Open</a></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>
