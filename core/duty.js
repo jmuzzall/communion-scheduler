@@ -62,7 +62,11 @@ function createSeason(actor, { label, start, end, deadline }) {
   const name = String(label || '').trim();
   if (!name) return { error: 'Give the season a name, for example "Spring 2027".' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(start || '') || !/^\d{4}-\d{2}-\d{2}$/.test(end || '')) return { error: 'Choose a start and end date.' };
-  if (start > end) return { error: 'The start date must be before the end date.' };
+  // Snap to whole Sundays: the first Sunday on or after start, the last Sunday on or before end.
+  const snap = (iso, step) => { const d = new Date(iso + 'T12:00:00'); while (d.getDay() !== 0) d.setDate(d.getDate() + step); return cal.isoDate(d); };
+  start = snap(start, 1);
+  end = snap(end, -1);
+  if (start > end) return { error: 'There must be at least one Sunday between the start and end dates.' };
   if (deadline && deadline > start) return { error: 'The blackout deadline must be on or before the first Sunday.' };
   const overlap = get(`SELECT label FROM seasons WHERE ministry = 'duty' AND status != 'archived' AND NOT (end_date < ? OR start_date > ?)`, [start, end]);
   if (overlap) return { error: `Those dates overlap the season "${overlap.label}".` };
@@ -94,9 +98,11 @@ function submitAvailability(person, seasonId, awayDayIds) {
   if (season.status !== 'collecting' || deadlinePassed(season)) return { error: 'Blackout dates for this season are closed. Use My Sundays to mark an away day, and the coordinator will be told.' };
   if (!isEligible(person, 'duty')) return { error: "You aren't on the duty deacon roster." };
   const away = new Set(awayDayIds.map(Number));
+  let awayCount = 0;
   transaction(() => {
     for (const e of seasonEvents(season.id)) {
       if (away.has(e.service_day_id)) {
+        awayCount++;
         run("INSERT OR IGNORE INTO unavailability (person_id, service_day_id, source) VALUES (?, ?, 'self')", [person.id, e.service_day_id]);
       } else {
         run('DELETE FROM unavailability WHERE person_id = ? AND service_day_id = ?', [person.id, e.service_day_id]);
@@ -104,7 +110,7 @@ function submitAvailability(person, seasonId, awayDayIds) {
     }
     run('INSERT OR REPLACE INTO season_submissions (season_id, person_id) VALUES (?, ?)', [season.id, person.id]);
   });
-  return { ok: true, away: away.size };
+  return { ok: true, away: awayCount };
 }
 
 function submissionStatus(seasonId) {
