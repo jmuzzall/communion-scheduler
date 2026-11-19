@@ -9,6 +9,7 @@ const { sendEmail } = require('../services/mailer');
 const { eligibleMinistries, MINISTRY_NAMES } = require('../core/eligibility');
 const { upcomingServiceDays, formatDay, todayIso, addMonths } = require('../core/calendar');
 const engine = require('../core/engine');
+const { emailStaff, appUrl: siteUrl } = require('../core/notify');
 const { CAMPUSES } = require('../core/schema');
 
 const MIN_PASSWORD = 8;
@@ -164,7 +165,15 @@ router.get('/me', requirePerson, (req, res) => {
       .filter(e => engine.eventSlots(e).some(s => s.open > 0));
     return { ministry: m, name: MINISTRY_NAMES[m], count: events.length };
   });
+  const isDeacon = eligibleMinistries(req.person).includes('duty');
+  const dutyPrompts = isDeacon ? all("SELECT * FROM seasons WHERE ministry = 'duty' AND status = 'collecting' AND (availability_deadline IS NULL OR availability_deadline >= ?) ORDER BY start_date", [today])
+    .filter(s => !get('SELECT 1 FROM season_submissions WHERE season_id = ? AND person_id = ?', [s.id, req.person.id]))
+    .map(s => ({ id: s.id, label: s.label, deadline: s.availability_deadline ? formatDay(s.availability_deadline) : null })) : [];
+  const openSpecials = isDeacon ? engine.upcomingEvents('duty', today, addMonths(today, 12)).filter(e => e.kind === 'special' && engine.isOpen(e))
+    .filter(e => !engine.eventAssignments(e.id).some(a => a.person_id === req.person.id))
+    .map(e => ({ id: e.id, title: e.title })) : [];
   res.render('hub/me', {
+    dutyPrompts, openSpecials,
     page: 'me',
     days: days.map(d => ({
       ...d, display: formatDay(d.date), away: away.get(d.id) || null,
@@ -179,12 +188,23 @@ router.get('/me', requirePerson, (req, res) => {
   });
 });
 
-router.post('/me/away', requirePerson, (req, res) => {
+router.post('/me/away', requirePerson, async (req, res) => {
   const day = get('SELECT * FROM service_days WHERE id = ?', [req.body.service_day_id]);
   if (!day || day.date < todayIso()) return res.redirect('/me?error=' + encodeURIComponent('Choose an upcoming Sunday.'));
   const reason = String(req.body.reason || '').trim().slice(0, 200) || null;
   run('DELETE FROM unavailability WHERE person_id = ? AND service_day_id = ?', [req.person.id, day.id]);
   run("INSERT INTO unavailability (person_id, service_day_id, reason, source) VALUES (?,?,?,'self')", [req.person.id, day.id, reason]);
+
+  // Already scheduled that day: tell staff so they can find a replacement.
+  const scheduled = engine.upcomingFor(req.person.id, day.date, day.date);
+  if (scheduled.length) {
+    await emailStaff(`${req.person.name} marked ${formatDay(day.date)} away but is scheduled`, [
+      `${req.person.name} marked ${formatDay(day.date)} away${reason ? ` (${reason})` : ''} and is still scheduled for:`,
+      ...scheduled.map(a => `${MINISTRY_NAMES[a.ministry]}: ${engine.describePosition(a)}`),
+      'They can propose a swap, or you can reassign the slot from the schedule.',
+    ], { url: `${siteUrl()}/admin/board?month=${day.date.slice(0, 7)}`, label: 'Open the month board' });
+    return res.redirect('/me?success=' + encodeURIComponent(`Marked away on ${formatDay(day.date)}. You're still scheduled that day, so staff were told; propose a swap if you can.`));
+  }
   res.redirect('/me?success=' + encodeURIComponent(`Marked away on ${formatDay(day.date)}. This applies to every ministry.`));
 });
 

@@ -16,19 +16,30 @@
         <% if (servesIn.includes('prayer')) { %>
           <li class="nav-item"><a class="nav-link <%= page === 'prayer' ? 'active' : '' %>" href="/prayer">Prayer</a></li>
         <% } %>
+        <% if (servesIn.includes('duty')) { %>
+          <li class="nav-item"><a class="nav-link <%= page === 'duty' ? 'active' : '' %>" href="/duty">Duty Deacon</a></li>
+        <% } %>
         <li class="nav-item"><a class="nav-link <%= page === 'swaps' ? 'active' : '' %>" href="/swaps">Swaps</a></li>
         <li class="nav-item"><a class="nav-link <%= page === 'profile' ? 'active' : '' %>" href="/me/profile">Profile</a></li>
-        <% if (canManageCommunion || canManagePrayer) { %>
+        <% if (canManageCommunion || canManagePrayer || canManageDuty) { %>
+          <li class="nav-item"><a class="nav-link <%= page === 'board' ? 'active' : '' %>" href="/admin/board">Month board</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle <%= page === 'schedule' ? 'active' : '' %>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Schedule</a>
             <ul class="dropdown-menu">
               <% if (canManageCommunion) { %><li><a class="dropdown-item" href="/admin/communion">Communion</a></li><% } %>
               <% if (canManagePrayer) { %><li><a class="dropdown-item" href="/admin/prayer">Prayer</a></li><% } %>
+              <% if (canManageDuty) { %><li><a class="dropdown-item" href="/admin/duty">Duty Deacon</a></li><% } %>
             </ul>
           </li>
         <% } %>
         <% if (isSuper) { %>
-          <li class="nav-item"><a class="nav-link <%= page === 'people' ? 'active' : '' %>" href="/admin/people">People</a></li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle <%= page === 'people' || page === 'import' ? 'active' : '' %>" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Admin</a>
+            <ul class="dropdown-menu">
+              <li><a class="dropdown-item" href="/admin/people">People</a></li>
+              <li><a class="dropdown-item" href="/admin/import">Import old data</a></li>
+            </ul>
+          </li>
         <% } %>
       </ul>
       <ul class="navbar-nav">

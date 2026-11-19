@@ -53,8 +53,12 @@ function adminScheduleRouter(ministry) {
       .map(c => ({ ...c, info: JSON.parse(c.details || '{}') }));
     const awayPeople = all(`SELECT p.name, u.reason FROM unavailability u JOIN people p ON p.id = u.person_id WHERE u.service_day_id = ? ORDER BY p.name`,
       [event.service_day_id]).filter(u => people.some(p => p.name === u.name));
+    const season = event.season_id ? get('SELECT * FROM seasons WHERE id = ?', [event.season_id]) : null;
     res.render('hub/admin-event', {
       page: 'schedule', ministry, name, event, slots, changes, awayPeople, allowCover: COVERABLE.includes(ministry),
+      allowAutofill: event.kind === 'regular' && !engine.SEASON_MINISTRIES.includes(ministry), season,
+      backHref: season ? `/admin/${ministry}/seasons/${season.id}` : `/admin/${ministry}`,
+      title: event.kind === 'special' ? event.title : name,
       display: cal.formatLongDay(event.date), open: engine.isOpen(event), autofillOn: cal.formatDay(cal.autofillDate(event.date)),
       success: req.query.success || null, error: req.query.error || null,
     });
@@ -103,6 +107,7 @@ function adminScheduleRouter(ministry) {
     const path = `/${req.params.eventId}`;
     const event = engine.getEvent(req.params.eventId);
     if (!event || event.ministry !== ministry || event.date <= cal.todayIso()) return back(res, path, 'error', 'Only upcoming Sundays can be auto-filled.');
+    if (event.kind !== 'regular' || engine.SEASON_MINISTRIES.includes(ministry)) return back(res, path, 'error', 'This schedule is not auto-filled.');
     const { added } = engine.autofill(event.id, req.person.id);
     if (req.body.notify === 'on') await engine.sendAssignmentNotices(event, added);
     back(res, path, 'success', `Auto-fill assigned ${added.length} ${added.length === 1 ? 'person' : 'people'}. Sign-up for this Sunday is now closed.`);

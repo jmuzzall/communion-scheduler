@@ -1,0 +1,114 @@
+<%- include('../partials/head', { title: 'Duty Deacon Admin' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <h2 class="mb-1">Duty Deacon</h2>
+  <p class="text-muted">Each season: deacons mark blackout dates, you generate a draft, adjust it, then publish. Only active McLean deacons are scheduled.</p>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <h5>Seasons</h5>
+      <div class="table-responsive">
+        <table class="table bg-white shadow-sm align-middle">
+          <thead><tr><th>Season</th><th>Dates</th><th>Status</th><th>Shifts</th><th></th></tr></thead>
+          <tbody>
+            <% if (!seasons.length) { %><tr><td colspan="5" class="text-muted">No seasons yet. Create one to start collecting blackout dates.</td></tr><% } %>
+            <% seasons.forEach(s => { %>
+              <tr>
+                <td><strong><%= s.label %></strong></td>
+                <td class="small"><%= s.range %></td>
+                <td><span class="badge <%= s.status === 'collecting' ? 'bg-warning text-dark' : s.status === 'draft' ? 'bg-info text-dark' : s.status === 'published' ? 'bg-success' : 'bg-light text-dark border' %>">
+                  <%= { collecting: 'Collecting blackouts', draft: 'Draft', published: 'Published', archived: 'Finished' }[s.status] %></span></td>
+                <td class="small"><%= s.filled %> over <%= s.sundays %> Sundays</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/admin/duty/seasons/<%= s.id %>">Open</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <h5 class="mt-4">Special services</h5>
+      <div class="table-responsive">
+        <table class="table bg-white shadow-sm align-middle">
+          <thead><tr><th>Service</th><th>Date</th><th>Sign-up window</th><th>Filled</th><th></th></tr></thead>
+          <tbody>
+            <% if (!specials.length) { %><tr><td colspan="5" class="text-muted">None scheduled.</td></tr><% } %>
+            <% specials.forEach(e => { %>
+              <tr>
+                <td><strong><%= e.title %></strong> <% if (e.open) { %><span class="badge bg-success">Open</span><% } %></td>
+                <td class="small"><%= e.display %></td>
+                <td class="small"><%= e.window %></td>
+                <td class="<%= e.filled < e.needed ? 'text-danger fw-bold' : '' %>"><%= e.filled %> / <%= e.needed %></td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="/admin/duty/<%= e.id %>">Open</a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold"><i class="bi bi-calendar-plus"></i> New season</div>
+        <div class="card-body">
+          <form method="POST" action="/admin/duty/seasons">
+            <label class="form-label small" for="sLabel">Name</label>
+            <input id="sLabel" name="label" class="form-control mb-2" placeholder="Spring 2027" required>
+            <div class="row g-2">
+              <div class="col-6"><label class="form-label small" for="sStart">First Sunday</label><input id="sStart" type="date" name="start" class="form-control" required></div>
+              <div class="col-6"><label class="form-label small" for="sEnd">Last Sunday</label><input id="sEnd" type="date" name="end" class="form-control" required></div>
+            </div>
+            <label class="form-label small mt-2" for="sDeadline">Blackout dates due</label>
+            <input id="sDeadline" type="date" name="deadline" class="form-control mb-1">
+            <div class="form-text mb-2">Reminders go to deacons who haven't submitted 2 days and 1 day before.</div>
+            <button class="btn btn-gold w-100">Create season</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white fw-bold"><i class="bi bi-star"></i> New special service</div>
+        <div class="card-body">
+          <form method="POST" action="/admin/duty/specials">
+            <label class="form-label small" for="spTitle">Name</label>
+            <input id="spTitle" name="title" class="form-control mb-2" placeholder="Christmas Eve 2027" required>
+            <label class="form-label small" for="spDate">Service date</label>
+            <input id="spDate" type="date" name="date" class="form-control mb-2" required>
+            <div class="row g-2 mb-2">
+              <div class="col-6"><label class="form-label small" for="spOpens">Sign-up opens</label><input id="spOpens" type="date" name="opens" class="form-control" required></div>
+              <div class="col-6"><label class="form-label small" for="spCloses">Sign-up closes</label><input id="spCloses" type="date" name="closes" class="form-control" required></div>
+            </div>
+            <span class="form-label small d-block">Service times and deacons needed</span>
+            <% [0, 1, 2, 3].forEach(i => { %>
+              <div class="input-group input-group-sm mb-1">
+                <input name="time_<%= i %>" class="form-control" placeholder="<%= ['4:00 PM', '7:00 PM', '11:00 PM', ''][i] %>" aria-label="Service time <%= i + 1 %>">
+                <input name="needed_<%= i %>" type="number" min="0" max="20" class="form-control" style="max-width:80px;" placeholder="2" aria-label="Deacons needed <%= i + 1 %>">
+              </div>
+            <% }) %>
+            <button class="btn btn-gold w-100 mt-2">Create special service</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold"><i class="bi bi-gear"></i> Settings</div>
+        <div class="card-body">
+          <form method="POST" action="/admin/duty/settings">
+            <label class="form-label small" for="lookback">Past seasons counted for fairness</label>
+            <input id="lookback" type="number" name="lookback" min="0" max="10" class="form-control mb-2" value="<%= settings.lookback %>">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="checkbox" id="thursdayEmail" name="thursday_email" <%= settings.thursdayEmail ? 'checked' : '' %>>
+              <label class="form-check-label small" for="thursdayEmail">Thursday 2 PM email to that Sunday's duty deacons, copying staff</label>
+            </div>
+            <button class="btn btn-outline-primary w-100">Save settings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

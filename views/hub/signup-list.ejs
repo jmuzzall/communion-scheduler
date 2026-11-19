@@ -6,15 +6,20 @@
   <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
 
   <h2 class="mb-1"><%= name %></h2>
-  <p class="text-muted">Sign-up is open for the next three months. Each Sunday closes when open slots are filled automatically, on the Friday of the week before.</p>
+  <% if (special) { %>
+    <p class="text-muted">Duty deacon sign-ups for services outside the regular Sunday schedule, like Christmas Eve and Good Friday. Each has its own sign-up window.</p>
+  <% } else { %>
+    <p class="text-muted">Sign-up is open for the next three months. Each Sunday closes when open slots are filled automatically, on the Friday of the week before.</p>
+  <% } %>
 
   <% if (!events.length) { %>
-    <p class="text-muted">No <%= name.toLowerCase() %> Sundays in the next three months.</p>
+    <p class="text-muted"><%= special ? 'No special services are scheduled yet.' : `No ${name.toLowerCase()} Sundays in the next three months.` %></p>
   <% } %>
   <div class="list-group shadow-sm">
     <% events.forEach(e => { %>
-      <a href="/<%= ministry %>/<%= e.id %>" class="list-group-item list-group-item-action d-flex flex-wrap align-items-center gap-2">
-        <strong style="min-width:150px;"><%= e.display %></strong>
+      <a href="<%= base %>/<%= e.id %>" class="list-group-item list-group-item-action d-flex flex-wrap align-items-center gap-2">
+        <strong style="min-width:150px;"><%= special ? e.title : e.display %></strong>
+        <% if (special) { %><span class="small text-muted"><%= e.display %> · <%= e.window %></span><% } %>
         <% if (e.allCovered) { %>
           <span class="badge covered"><%= e.covers.join(', ') %> <%= ministry === 'prayer' ? 'praying' : 'covering' %></span>
         <% } else { %>

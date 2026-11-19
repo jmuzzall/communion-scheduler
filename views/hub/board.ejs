@@ -1,0 +1,75 @@
+<%- include('../partials/head', { title: 'Month Board' }) %>
+<%- include('navbar') %>
+
+<div class="container-fluid mt-4 mb-5 px-4">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+    <div>
+      <h2 class="mb-1"><%= monthName %></h2>
+      <div class="d-flex gap-2 align-items-center">
+        <a class="btn btn-sm btn-outline-secondary" href="/admin/board?month=<%= prev %>" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+        <a class="btn btn-sm btn-outline-secondary" href="/admin/board" >This month</a>
+        <a class="btn btn-sm btn-outline-secondary" href="/admin/board?month=<%= next %>" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+      </div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <div class="btn-group" role="group" aria-label="View">
+        <a class="btn btn-sm <%= view === 'summary' ? 'btn-primary' : 'btn-outline-primary' %>" href="/admin/board?month=<%= month %>&view=summary">Summary</a>
+        <a class="btn btn-sm <%= view === 'names' ? 'btn-primary' : 'btn-outline-primary' %>" href="/admin/board?month=<%= month %>&view=names">Names</a>
+      </div>
+      <a class="btn btn-sm btn-outline-primary" href="/admin/board/export.xlsx?month=<%= month %>"><i class="bi bi-file-earmark-excel"></i> Export</a>
+      <a class="btn btn-sm btn-outline-primary" href="/admin/board/people">People load</a>
+    </div>
+  </div>
+
+  <div class="legend small text-muted mb-2 d-flex flex-wrap gap-3">
+    <span><span class="badge board-full">Full</span> filled</span>
+    <span><span class="badge board-short">Short</span> some open</span>
+    <span><span class="badge board-empty">Open</span> nobody yet</span>
+    <span><span class="badge covered">Pastor</span> covered by a pastor</span>
+    <span><span class="badge bg-info text-dark">Draft</span> duty draft, not visible to deacons</span>
+    <span>Click any cell to edit that Sunday.</span>
+  </div>
+
+  <% if (!rows.length) { %><p class="text-muted">Nothing is scheduled this month.</p><% } else { %>
+  <div class="table-responsive board-wrap">
+    <table class="table table-bordered bg-white align-top board">
+      <thead>
+        <tr>
+          <th class="board-date">Date</th>
+          <% columns.forEach(c => { %><th><%= c.label %><span class="d-block small fw-normal text-muted"><%= c.sub %></span></th><% }) %>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(r => { %>
+          <tr>
+            <th class="board-date"><%= r.display %><% if (r.label) { %><span class="d-block small text-muted fw-normal"><%= r.label %></span><% } %></th>
+            <% columns.forEach(c => { const cell = r.cells[c.key]; %>
+              <td>
+                <% if (!cell) { %><span class="text-muted small">—</span><% } else { %>
+                  <a class="board-cell" href="/admin/<%= c.ministry %>/<%= cell.eventId %>">
+                    <% if (cell.draft) { %><span class="badge bg-info text-dark mb-1">Draft</span><% } %>
+                    <% if (cell.covered) { %>
+                      <span class="badge covered"><%= view === 'names' ? cell.covered : 'Pastor' %></span>
+                    <% } else if (view === 'summary') { %>
+                      <span class="badge <%= cell.open === 0 ? 'board-full' : cell.filled === 0 ? 'board-empty' : 'board-short' %>"><%= cell.filled %>/<%= cell.needed %></span>
+                    <% } else { %>
+                      <% cell.groups.forEach(g => { %>
+                        <% if (g.label && cell.groups.length > 1) { %><span class="d-block small text-muted text-uppercase mt-1" style="font-size:.65rem;"><%= g.label %></span><% } %>
+                        <% if (g.slot.covered) { %><span class="badge covered"><%= g.slot.covered %></span><% } %>
+                        <% g.slot.assigned.forEach(a => { %><span class="d-block small"><%= a.person_name %><% if (a.type === 'swapped' || a.type === 'staff') { %> <span class="badge bg-light text-dark border" style="font-size:.6rem;"><%= a.type === 'swapped' ? 'swap' : 'staff' %></span><% } %></span><% }) %>
+                        <% for (let i = 0; i < g.slot.open; i++) { %><span class="badge board-empty d-inline-block mb-1">Open</span> <% } %>
+                      <% }) %>
+                    <% } %>
+                  </a>
+                <% } %>
+              </td>
+            <% }) %>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

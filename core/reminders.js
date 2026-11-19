@@ -41,7 +41,7 @@ async function personalReminders(now) {
     const date = cal.addDays(now.date, daysAhead);
     const rows = all(`SELECT a.person_id, e.ministry, pos.service_time, pos.campus, pos.area FROM assignments a
                       JOIN ministry_events e ON e.id = a.event_id JOIN service_days d ON d.id = e.service_day_id
-                      JOIN positions pos ON pos.id = a.position_id WHERE d.date = ? ORDER BY pos.sort_order`, [date]);
+                      JOIN positions pos ON pos.id = a.position_id WHERE d.date = ? AND ${engine.VISIBLE_SQL} ORDER BY pos.sort_order`, [date]);
     const byPerson = new Map();
     for (const r of rows) {
       if (!byPerson.has(r.person_id)) byPerson.set(r.person_id, []);
@@ -116,10 +116,15 @@ async function tick() {
     cal.ensureSundays(15);
     cal.ensureCommunionEvents(15);
     cal.ensureWeeklyEvents('prayer', 15);
+    const duty = require('./duty');
+    duty.archiveFinishedSeasons();
     await runAutofills(now);
     await personalReminders(now);
     await twoWeekNudges(now);
     await monthlyDigest(now);
+    await duty.deadlineReminders(now);
+    await duty.thursdayEmail(now);
+    await duty.specialReminders(now);
   } catch (err) {
     console.error('[Reminders] Check failed:', err.message);
   }

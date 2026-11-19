@@ -2,9 +2,9 @@
 <%- include('navbar') %>
 
 <div class="container mt-4 mb-5">
-  <a href="/<%= ministry %>" class="small"><i class="bi bi-arrow-left"></i> All <%= name.toLowerCase() %> Sundays</a>
+  <a href="<%= base %>" class="small"><i class="bi bi-arrow-left"></i> <%= special ? 'All special services' : `All ${name.toLowerCase()} Sundays` %></a>
   <h2 class="mt-2 mb-1"><%= name %></h2>
-  <p class="text-muted mb-3"><%= display %> · <%= open ? 'Sign-up is open' : 'Sign-up is closed' %></p>
+  <p class="text-muted mb-3"><%= display %> · <%= open ? (closesOn ? `Sign-up is open until ${closesOn}` : 'Sign-up is open') : 'Sign-up is closed' %></p>
 
   <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
   <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
@@ -12,19 +12,19 @@
   <% if (confirm) { %>
     <div class="alert alert-warning">
       <strong><%= confirm.warning %></strong> You can serve both if you'd like.
-      <form method="POST" action="/<%= ministry %>/<%= event.id %>/claim" class="d-inline ms-2">
+      <form method="POST" action="<%= base %>/<%= event.id %>/claim" class="d-inline ms-2">
         <input type="hidden" name="position_id" value="<%= confirm.positionId %>">
         <input type="hidden" name="confirm_overlap" value="1">
         <button class="btn btn-sm btn-gold">Sign up for both</button>
       </form>
-      <a href="/<%= ministry %>/<%= event.id %>" class="btn btn-sm btn-outline-secondary ms-1">Cancel</a>
+      <a href="<%= base %>/<%= event.id %>" class="btn btn-sm btn-outline-secondary ms-1">Cancel</a>
     </div>
   <% } %>
 
   <% if (away.blocked && open) { %>
     <div class="alert alert-secondary">
       You marked this Sunday away<%= away.reason ? ` (${away.reason})` : '' %>.
-      <form method="POST" action="/<%= ministry %>/<%= event.id %>/opt-in" class="d-inline ms-2">
+      <form method="POST" action="<%= base %>/<%= event.id %>/opt-in" class="d-inline ms-2">
         <button class="btn btn-sm btn-outline-primary">I can serve <%= name.toLowerCase() %> this Sunday</button>
       </form>
     </div>
@@ -50,7 +50,7 @@
             <% } else if (slot.myAssignment) { %>
               <span class="badge bg-success">Signed up</span>
               <% if (open && slot.myAssignment.type === 'voluntary') { %>
-                <form method="POST" action="/<%= ministry %>/withdraw/<%= slot.myAssignment.id %>" class="d-inline ms-1">
+                <form method="POST" action="<%= base %>/withdraw/<%= slot.myAssignment.id %>" class="d-inline ms-1">
                   <button class="btn btn-sm btn-outline-danger">Withdraw</button>
                 </form>
               <% } else { %>
@@ -66,7 +66,7 @@
               <span class="badge bg-secondary">Full</span>
             <% } else { %>
               <% if (slot.overlapWith) { %><span class="small text-warning me-1" title="Same time as another duty">Also <%= slot.overlapWith %></span><% } %>
-              <form method="POST" action="/<%= ministry %>/<%= event.id %>/claim" class="d-inline">
+              <form method="POST" action="<%= base %>/<%= event.id %>/claim" class="d-inline">
                 <input type="hidden" name="position_id" value="<%= slot.id %>">
                 <button class="btn btn-sm btn-gold">Sign up</button>
               </form>

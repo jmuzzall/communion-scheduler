@@ -33,10 +33,16 @@ app.use(session({
 app.use(require('./core/auth').loadPerson);
 
 app.use('/admin/people', require('./routes/people'));
+app.use('/admin/import', require('./routes/import'));
+app.use('/admin/board', require('./routes/board'));
 app.use('/admin/communion', adminScheduleRouter('communion'));
 app.use('/admin/prayer', adminScheduleRouter('prayer'));
+app.use('/admin/duty', require('./routes/adminDuty'));
+app.use('/admin/duty', adminScheduleRouter('duty'));
 app.use('/communion', signupRouter('communion'));
 app.use('/prayer', signupRouter('prayer'));
+app.use('/duty/specials', signupRouter('duty', { base: '/duty/specials', special: true }));
+app.use('/duty', require('./routes/duty'));
 app.use('/swaps', require('./routes/swaps'));
 app.use('/', require('./routes/hub'));
 

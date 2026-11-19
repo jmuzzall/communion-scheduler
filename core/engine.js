@@ -77,10 +77,20 @@ function awayStatus(personId, serviceDayId, ministry) {
   return { away: true, blocked: !exception, reason: away.reason };
 }
 
+// Season-planned ministries are scheduled by the planner, not by sign-up.
+const SEASON_MINISTRIES = ['duty'];
+
+// Officers and reminders only see season assignments once the season is published.
+const VISIBLE_SQL = `(e.season_id IS NULL OR EXISTS (SELECT 1 FROM seasons s WHERE s.id = e.season_id AND s.status IN ('published','archived')))`;
+
 function isOpen(event) {
   const today = cal.todayIso();
-  return event.kind === 'regular' && event.status === 'upcoming' &&
-    event.date > today && event.date <= cal.addMonths(today, SIGNUP_WINDOW_MONTHS);
+  if (event.kind === 'special') {
+    return event.date > today && !!event.signup_opens && !!event.signup_closes &&
+      today >= event.signup_opens && today <= event.signup_closes;
+  }
+  if (SEASON_MINISTRIES.includes(event.ministry)) return false;
+  return event.status === 'upcoming' && event.date > today && event.date <= cal.addMonths(today, SIGNUP_WINDOW_MONTHS);
 }
 
 function upcomingEvents(ministry, fromIso, toIso) {
@@ -318,7 +328,7 @@ function takeProblem(personId, name, outgoing, incoming) {
   const away = awayStatus(personId, incoming.service_day_id, incoming.ministry);
   if (away.blocked) return `${self ? "You're" : name + ' is'} marked away on ${cal.formatDay(incoming.date)}.`;
   const clash = dayAssignments(personId, incoming.service_day_id)
-    .find(a => a.id !== outgoing.id && a.ministry === incoming.ministry && positionsClash(a, incoming));
+    .find(a => a.id !== outgoing.id && a.ministry === incoming.ministry && (a.event_id === incoming.event_id && !a.service_time || positionsClash(a, incoming)));
   if (clash) return `${self ? "You're" : name + ' is'} already serving ${describePosition(clash)} on ${cal.formatDay(incoming.date)}.`;
   return null;
 }
@@ -339,7 +349,7 @@ function swapCandidates(person, assignmentId) {
   const mine = assignmentDetail(assignmentId);
   if (!mine || mine.person_id !== person.id) return null;
   const others = all(`SELECT a.id FROM assignments a JOIN ministry_events e ON e.id = a.event_id JOIN service_days d ON d.id = e.service_day_id
-                      WHERE e.ministry = ? AND d.date > ? AND a.person_id != ? ORDER BY d.date`, [mine.ministry, cal.todayIso(), person.id])
+                      WHERE e.ministry = ? AND d.date > ? AND a.person_id != ? AND ${VISIBLE_SQL} ORDER BY d.date`, [mine.ministry, cal.todayIso(), person.id])
     .map(r => assignmentDetail(r.id));
   return {
     mine,
@@ -433,11 +443,12 @@ function upcomingFor(personId, fromIso, toIso) {
   return all(`SELECT a.*, e.ministry, d.date, pos.service_time, pos.campus, pos.area FROM assignments a
               JOIN ministry_events e ON e.id = a.event_id JOIN service_days d ON d.id = e.service_day_id
               JOIN positions pos ON pos.id = a.position_id
-              WHERE a.person_id = ? AND d.date >= ? AND d.date <= ? ORDER BY d.date, pos.sort_order`, [personId, fromIso, toIso]);
+              WHERE a.person_id = ? AND d.date >= ? AND d.date <= ? AND ${VISIBLE_SQL}
+              ORDER BY d.date, pos.sort_order`, [personId, fromIso, toIso]);
 }
 
 module.exports = {
-  SIGNUP_WINDOW_MONTHS, positionsClash, describePosition, getEvent, eventPositions, eventSlots, eventAssignments,
+  SIGNUP_WINDOW_MONTHS, SEASON_MINISTRIES, VISIBLE_SQL, positionsClash, describePosition, getEvent, eventPositions, eventSlots, eventAssignments,
   dayAssignments, awayStatus, isOpen, upcomingEvents, signupProblem, claim, withdraw, optIn,
   autofill, sendAssignmentNotices, staffAssign, staffRemove, coverSlots, uncoverSlot,
   swapCandidates, proposeSwap, acceptSwap, declineSwap, cancelSwap, swapsFor, upcomingFor, assignmentDetail,

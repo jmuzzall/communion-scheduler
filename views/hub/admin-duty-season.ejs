@@ -1,0 +1,79 @@
+<%- include('../partials/head', { title: season.label }) %>
+<%- include('navbar') %>
+
+<div class="container-fluid mt-4 mb-5 px-4">
+  <a href="/admin/duty" class="small"><i class="bi bi-arrow-left"></i> Duty Deacon</a>
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-2 mb-3">
+    <div>
+      <h2 class="mb-1"><%= season.label %></h2>
+      <p class="text-muted mb-0"><%= range %><%= deadline ? ` · Blackouts due ${deadline}` : '' %> ·
+        <strong><%= { collecting: 'Collecting blackout dates', draft: 'Draft: not visible to deacons yet', published: 'Published', archived: 'Finished' }[season.status] %></strong></p>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-primary" href="/admin/duty/seasons/<%= season.id %>/export.xlsx"><i class="bi bi-file-earmark-excel"></i> Export</a>
+      <% if (['collecting', 'draft'].includes(season.status)) { %>
+        <form method="POST" action="/admin/duty/seasons/<%= season.id %>/plan">
+          <button class="btn btn-gold"><i class="bi bi-magic"></i> <%= season.status === 'draft' ? 'Regenerate draft' : 'Generate draft' %></button>
+        </form>
+      <% } %>
+      <% if (season.status === 'draft') { %>
+        <form method="POST" action="/admin/duty/seasons/<%= season.id %>/publish">
+          <button class="btn btn-success"><i class="bi bi-send"></i> Publish and email deacons</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (season.status === 'collecting' && !deadlinePassed) { %>
+    <div class="alert alert-light border small">Generating now is fine for a preview, but deacons can still change their blackout dates until the deadline. Regenerate after it passes.</div>
+  <% } %>
+
+  <div class="row g-4">
+    <div class="col-xl-7">
+      <h5>Schedule</h5>
+      <div class="table-responsive">
+        <table class="table bg-white shadow-sm align-middle">
+          <thead><tr><th>Sunday</th><th>Duty deacons</th><th>Away</th><th></th></tr></thead>
+          <tbody>
+            <% events.forEach(e => { %>
+              <% const names = e.slots.flatMap(s => s.assigned.map(a => a.person_name)); const open = e.slots.reduce((n, s) => n + s.open, 0); %>
+              <tr>
+                <td><strong><%= e.display %></strong></td>
+                <td><% names.forEach(n => { %><span class="slot-badge"><%= n %></span><% }) %><% if (open) { %><span class="badge bg-danger-subtle text-danger"><%= open %> open</span><% } %></td>
+                <td class="small text-muted"><%= e.away.join(', ') %></td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/admin/duty/<%= e.id %>" aria-label="Edit <%= e.display %>"><i class="bi bi-pencil"></i></a></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="col-xl-5">
+      <h5>Deacons <span class="small text-muted"><%= submittedCount %> of <%= people.length %> submitted</span></h5>
+      <form method="POST" action="/admin/duty/seasons/<%= season.id %>/max-shifts">
+        <div class="table-responsive">
+          <table class="table table-sm bg-white shadow-sm align-middle">
+            <thead><tr><th>Deacon</th><th>Submitted</th><th>Away</th><th>Shifts</th><th>Max</th></tr></thead>
+            <tbody>
+              <% people.forEach(p => { %>
+                <tr>
+                  <td><%= p.name %></td>
+                  <td><%= p.submitted ? '✓' : '—' %></td>
+                  <td><%= p.awayCount %></td>
+                  <td><%= p.shifts %></td>
+                  <td><input type="number" min="0" max="60" name="max_<%= p.id %>" value="<%= p.maxShifts %>" class="form-control form-control-sm" style="width:70px;" aria-label="Max shifts for <%= p.name %>"></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <button class="btn btn-sm btn-outline-primary">Save max shifts</button>
+      </form>
+      <p class="small text-muted mt-2">Deacons who don't submit by the deadline are treated as available every Sunday.</p>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

@@ -1,18 +1,24 @@
-<%- include('../partials/head', { title: name + ' ' + event.date }) %>
+<%- include('../partials/head', { title: title + ' ' + event.date }) %>
 <%- include('navbar') %>
 
 <div class="container-fluid mt-4 mb-5 px-4">
-  <a href="/admin/<%= ministry %>" class="small"><i class="bi bi-arrow-left"></i> <%= name %> schedule</a>
+  <a href="<%= backHref %>" class="small"><i class="bi bi-arrow-left"></i> <%= season ? season.label : name + ' schedule' %></a>
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-2 mb-3">
     <div>
-      <h2 class="mb-1"><%= name %>, <%= display %></h2>
+      <h2 class="mb-1"><%= title %>, <%= display %></h2>
       <p class="text-muted mb-0">
-        <%= event.status === 'filled' ? 'Filled. Sign-up is closed; swaps and staff changes still work.' : (open ? `Open for sign-up. Auto-fill runs ${autofillOn}.` : 'Not open for sign-up yet.') %>
+        <% if (season) { %>
+          Part of <%= season.label %> (<%= { collecting: 'collecting blackout dates', draft: 'draft, not visible to deacons', published: 'published', archived: 'finished' }[season.status] %>). Changes here are emailed to the people affected.
+        <% } else if (event.kind === 'special') { %>
+          <%= open ? 'Sign-up is open.' : 'Sign-up is closed.' %> Fill any gaps here.
+        <% } else { %>
+          <%= event.status === 'filled' ? 'Filled. Sign-up is closed; swaps and staff changes still work.' : (open ? `Open for sign-up. Auto-fill runs ${autofillOn}.` : 'Not open for sign-up yet.') %>
+        <% } %>
       </p>
     </div>
     <div class="d-flex gap-2">
       <a class="btn btn-outline-primary" href="/admin/<%= ministry %>/<%= event.id %>/export.xlsx"><i class="bi bi-file-earmark-excel"></i> Export</a>
-      <% if (event.status !== 'filled') { %>
+      <% if (allowAutofill && event.status !== 'filled') { %>
         <form method="POST" action="/admin/<%= ministry %>/<%= event.id %>/autofill" class="d-flex align-items-center gap-2">
           <label class="small"><input type="checkbox" name="notify" class="form-check-input" checked> Email people assigned</label>
           <button class="btn btn-gold"><i class="bi bi-magic"></i> Auto-fill now</button>

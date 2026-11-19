@@ -1,0 +1,64 @@
+<%- include('../partials/head', { title: season.label }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <a href="/duty" class="small"><i class="bi bi-arrow-left"></i> Duty Deacon</a>
+  <h2 class="mt-2 mb-1"><%= season.label %></h2>
+  <p class="text-muted"><%= range %></p>
+
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <% if (canEdit) { %>
+    <div class="alert <%= submitted ? 'alert-success' : 'alert-warning' %>">
+      <% if (deadline) { %>
+        <strong><%= daysLeft === 0 ? 'Due today' : `${daysLeft} day${daysLeft === 1 ? '' : 's'} left` %></strong> to mark the Sundays you can't serve (deadline <%= deadline %>).
+      <% } %>
+      <%= submitted ? "You've submitted; you can change your answers until the deadline." : "If you don't submit, you'll be treated as available every Sunday." %>
+    </div>
+    <form method="POST" action="/duty/season/<%= season.id %>/availability">
+      <p class="small text-muted mb-2">Tick each Sunday you're <strong>away</strong>. Leave the rest unticked. Away days apply to every ministry you serve in.</p>
+      <div class="row row-cols-2 row-cols-md-4 g-2 mb-3">
+        <% days.forEach(d => { %>
+          <div class="col">
+            <label class="card border p-2 d-flex flex-row align-items-center gap-2 h-100 <%= d.away ? 'bg-light' : '' %>" style="cursor:pointer;">
+              <input type="checkbox" class="form-check-input mt-0" name="away" value="<%= d.service_day_id %>" <%= d.away ? 'checked' : '' %>>
+              <span class="small"><%= d.display %></span>
+            </label>
+          </div>
+        <% }) %>
+      </div>
+      <button class="btn btn-gold">Save my blackout dates</button>
+    </form>
+  <% } else if (!visible) { %>
+    <div class="alert alert-light border">
+      <%= season.status === 'collecting' ? 'The blackout deadline has passed. ' : '' %>The coordinator is preparing this season's schedule. You'll get an email when it's published.
+      To mark a Sunday away now, use <a href="/me">My Sundays</a>; the coordinator will be told.
+    </div>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table bg-white shadow-sm align-middle">
+        <thead><tr><th>Sunday</th><th>Duty deacons</th><th></th></tr></thead>
+        <tbody>
+          <% days.forEach(d => { %>
+            <tr class="<%= d.past ? 'text-muted' : '' %>">
+              <td><strong><%= d.display %></strong></td>
+              <td>
+                <% d.team.forEach(a => { %>
+                  <span class="slot-badge <%= a.person_id === person.id ? 'border-success' : '' %>"><%= a.person_name %><%= a.person_id === person.id ? ' (you)' : '' %></span>
+                <% }) %>
+                <% if (!d.team.length) { %><span class="text-danger small">Not filled</span><% } %>
+              </td>
+              <td class="text-end">
+                <% const mine = d.team.find(a => a.person_id === person.id); %>
+                <% if (mine && !d.past) { %><a class="btn btn-sm btn-outline-primary" href="/swaps/new/<%= mine.id %>">Swap</a><% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

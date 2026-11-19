@@ -185,6 +185,14 @@ h1, h2, h3, h4, h5, .navbar-brand {
   border-color: #c0392b;
 }
 
+.badge.board-full { background: #e3f2e8; color: #2f7d4f; }
+.badge.board-short { background: #fbefd5; color: #9a6400; }
+.badge.board-empty { background: #f8e1de; color: #a8372b; }
+.board td, .board th { min-width: 120px; vertical-align: top; }
+.board .board-date { position: sticky; left: 0; background: #fff; z-index: 1; min-width: 110px; }
+.board-cell { display: block; color: inherit; text-decoration: none; }
+.board-cell:hover, .board-cell:focus-visible { background: #f7f4ee; outline: none; }
+
 .badge.covered {
   background: #f3e7cf;
   color: #7a5717;

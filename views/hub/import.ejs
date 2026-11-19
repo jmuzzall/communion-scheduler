@@ -1,0 +1,76 @@
+<%- include('../partials/head', { title: 'Import Old Data' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <h2 class="mb-1">Import data from the old apps</h2>
+  <p class="text-muted">Bring in history from communion-scheduler and election-scheduler. Import the officer roster on the People page first, so people match by email. Each import can be run again safely: anything already brought over is matched, not duplicated.</p>
+
+  <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+  <% if (result) { const r = result.report; %>
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white fw-bold text-success"><i class="bi bi-check-circle"></i> Imported <%= result.file %> (<%= result.kind === 'communion' ? 'communion-scheduler' : 'election-scheduler' %>)</div>
+      <div class="card-body">
+        <ul class="mb-2">
+          <li><%= r.peopleMatched %> people matched the roster by email</li>
+          <% if (result.kind === 'communion') { %>
+            <li><%= r.events %> communion Sundays added, <%= r.assignments %> assignments, <%= r.unavailable %> "unavailable all day" marks, <%= r.swaps %> trades</li>
+          <% } else { %>
+            <li><%= r.assignments %> duty assignments across <%= r.seasons.length %> season<%= r.seasons.length === 1 ? '' : 's' %></li>
+            <li><%= r.unavailable %> blackout dates, <%= r.submissions %> deacons marked as submitted, <%= r.swaps %> pending swaps, <%= r.remindersCarried %> reminders already sent</li>
+          <% } %>
+        </ul>
+        <% if (r.seasons && r.seasons.length) { %>
+          <p class="mb-1 fw-bold small">Seasons</p>
+          <ul class="small"><% r.seasons.forEach(s => { %><li><%= s %></li><% }) %></ul>
+        <% } %>
+        <% if (r.admins && r.admins.length) { %>
+          <p class="mb-1 fw-bold small">Admin accounts</p>
+          <ul class="small"><% r.admins.forEach(a => { %><li><%= a %></li><% }) %></ul>
+        <% } %>
+        <% if (r.peopleCreated.length) { %>
+          <div class="alert alert-warning small mb-2">
+            <strong><%= r.peopleCreated.length %> people weren't on the roster</strong> and were added from the old app. Check each one on the People page: set their office, status and main location, or mark them inactive.
+            <ul class="mb-0 mt-1"><% r.peopleCreated.forEach(p => { %><li><%= p %></li><% }) %></ul>
+          </div>
+        <% } %>
+        <% if (r.skipped && r.skipped.length) { %>
+          <div class="alert alert-light border small mb-0"><strong>Skipped:</strong>
+            <ul class="mb-0"><% r.skipped.forEach(s => { %><li><%= s %></li><% }) %></ul>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="row g-4">
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white fw-bold">communion-scheduler</div>
+        <div class="card-body">
+          <p class="small text-muted">Upload <code>communion.db</code>. Brings in communion Sundays, assignments, "unavailable all day" marks and trades. Members not on the roster are added and listed for review. Old communion admin accounts are not copied.</p>
+          <form method="POST" action="/admin/import/communion" enctype="multipart/form-data">
+            <label class="visually-hidden" for="communionFile">communion.db file</label>
+            <input id="communionFile" type="file" name="dbfile" accept=".db" class="form-control mb-2" required>
+            <button class="btn btn-gold">Import communion data</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white fw-bold">election-scheduler (duty deacons)</div>
+        <div class="card-body">
+          <p class="small text-muted">Upload <code>election.db</code>. Brings in the current and next duty seasons, archived seasons, blackout dates, max shifts, pending swaps and admin accounts (super admins stay administrators; other admins become duty coordinators).</p>
+          <form method="POST" action="/admin/import/election" enctype="multipart/form-data">
+            <label class="visually-hidden" for="electionFile">election.db file</label>
+            <input id="electionFile" type="file" name="dbfile" accept=".db" class="form-control mb-2" required>
+            <button class="btn btn-gold">Import duty deacon data</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

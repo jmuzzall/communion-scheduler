@@ -1,0 +1,44 @@
+<%- include('../partials/head', { title: 'Duty Deacon' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <h2 class="mb-1">Duty Deacon</h2>
+  <p class="text-muted">The coordinator plans each season from the Sundays deacons mark away. Mark yours before the deadline, then check your dates once the schedule is published.</p>
+
+  <h5 class="mt-4">Seasons</h5>
+  <% if (!seasons.length) { %><p class="text-muted small">No duty seasons yet.</p><% } %>
+  <div class="list-group shadow-sm">
+    <% seasons.forEach(s => { %>
+      <a href="/duty/season/<%= s.id %>" class="list-group-item list-group-item-action">
+        <div class="d-flex flex-wrap justify-content-between gap-2">
+          <strong><%= s.label %></strong>
+          <span class="badge <%= s.status === 'collecting' ? 'bg-warning text-dark' : s.status === 'published' ? 'bg-success' : 'bg-light text-dark border' %>">
+            <%= s.status === 'collecting' ? 'Mark your blackout dates' : s.status === 'draft' ? 'Schedule being prepared' : s.status === 'published' ? 'Published' : 'Finished' %>
+          </span>
+        </div>
+        <div class="small text-muted"><%= s.range %></div>
+        <% if (s.status === 'collecting') { %>
+          <div class="small"><%= s.submitted ? '✓ You submitted your blackout dates.' : `Due ${s.deadline || 'soon'}. You haven't submitted yet.` %></div>
+        <% } else if (s.myDates.length) { %>
+          <div class="small">Your dates: <%= s.myDates.join('; ') %></div>
+        <% } %>
+      </a>
+    <% }) %>
+  </div>
+
+  <h5 class="mt-4">Special services</h5>
+  <% if (!specials.length) { %><p class="text-muted small">No special services are scheduled yet.</p><% } %>
+  <div class="list-group shadow-sm">
+    <% specials.forEach(e => { %>
+      <a href="/duty/specials/<%= e.id %>" class="list-group-item list-group-item-action d-flex flex-wrap justify-content-between gap-2">
+        <span><strong><%= e.title %></strong> <span class="small text-muted"><%= e.display %></span></span>
+        <span class="badge <%= e.open ? 'bg-gold btn-gold' : 'bg-light text-dark border' %>"><%= e.open ? 'Sign-up open' : 'Closed' %></span>
+      </a>
+    <% }) %>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

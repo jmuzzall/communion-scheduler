@@ -1,0 +1,30 @@
+<%- include('../partials/head', { title: 'People Load' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5">
+  <a href="/admin/board" class="small"><i class="bi bi-arrow-left"></i> Month board</a>
+  <h2 class="mt-2 mb-1">Who's serving how often</h2>
+  <p class="text-muted">Assignments in the last 12 months, and scheduled in the next three months, across every ministry. Draft duty schedules aren't counted until published.</p>
+  <div class="table-responsive">
+    <table class="table table-sm bg-white shadow-sm align-middle">
+      <thead>
+        <tr><th>Name</th><th>Office</th><% ['communion', 'prayer', 'duty'].forEach(m => { %><th class="text-center"><%= names[m] %></th><% }) %><th class="text-center">Total</th></tr>
+      </thead>
+      <tbody>
+        <% people.forEach(p => { %>
+          <tr class="<%= p.active ? '' : 'text-muted' %>">
+            <td><%= p.name %></td>
+            <td class="small"><%= p.active ? 'Active' : 'Inactive' %> <%= p.office %> · <%= p.home_campus %></td>
+            <% ['communion', 'prayer', 'duty'].forEach(m => { %>
+              <td class="text-center"><%= p[m].past %><% if (p[m].upcoming) { %> <span class="text-muted small">+<%= p[m].upcoming %></span><% } %></td>
+            <% }) %>
+            <td class="text-center fw-bold"><%= p.totalPast %><% if (p.totalUpcoming) { %> <span class="text-muted small fw-normal">+<%= p.totalUpcoming %></span><% } %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <p class="small text-muted">"+n" is upcoming assignments in the next three months.</p>
+</div>
+
+<%- include('../partials/footer') %>

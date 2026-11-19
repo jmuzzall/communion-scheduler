@@ -5,11 +5,27 @@ const path = require('path');
 const DB_PATH = path.join(__dirname, 'data', process.env.DB_FILE || 'officer-service.db');
 
 let db;
+let SQL;
 let batching = 0;
+
+// Opens a separate, in-memory database from an uploaded file (used by the import page).
+async function openDatabase(buffer) {
+  SQL = SQL || await initSqlJs();
+  return new SQL.Database(buffer);
+}
+
+function rawRows(handle, sql, params = []) {
+  const stmt = handle.prepare(sql);
+  stmt.bind(params);
+  const out = [];
+  while (stmt.step()) out.push(stmt.getAsObject());
+  stmt.free();
+  return out;
+}
 
 async function getDb() {
   if (db) return db;
-  const SQL = await initSqlJs();
+  SQL = SQL || await initSqlJs();
   db = fs.existsSync(DB_PATH) ? new SQL.Database(fs.readFileSync(DB_PATH)) : new SQL.Database();
   db.run('PRAGMA foreign_keys = ON');
   require('./core/schema').initCoreSchema(db);
@@ -65,4 +81,4 @@ function lastId() {
   return get('SELECT last_insert_rowid() AS id').id;
 }
 
-module.exports = { getDb, save, run, get, all, transaction, lastId, DB_PATH };
+module.exports = { getDb, save, run, get, all, transaction, lastId, openDatabase, rawRows, DB_PATH };

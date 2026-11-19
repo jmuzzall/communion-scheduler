@@ -155,6 +155,23 @@ function initCoreSchema(db) {
     FOREIGN KEY (target_id) REFERENCES people(id) ON DELETE CASCADE
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS ministry_prefs (
+    person_id INTEGER NOT NULL,
+    ministry TEXT NOT NULL,
+    max_shifts INTEGER NOT NULL DEFAULT 26,
+    PRIMARY KEY (person_id, ministry),
+    FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+  )`);
+
+  db.run(`CREATE TABLE IF NOT EXISTS season_submissions (
+    season_id INTEGER NOT NULL,
+    person_id INTEGER NOT NULL,
+    submitted_at TEXT DEFAULT (datetime('now')),
+    PRIMARY KEY (season_id, person_id),
+    FOREIGN KEY (season_id) REFERENCES seasons(id) ON DELETE CASCADE,
+    FOREIGN KEY (person_id) REFERENCES people(id) ON DELETE CASCADE
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS covered_slots (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     event_id INTEGER NOT NULL,

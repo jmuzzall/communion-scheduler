@@ -11,6 +11,13 @@
     <div class="alert alert-warning"><i class="bi bi-arrow-left-right"></i> <%= pendingSwaps %> swap request<%= pendingSwaps === 1 ? ' is' : 's are' %> waiting for your answer. <a href="/swaps" class="alert-link">Review</a></div>
   <% } %>
 
+  <% dutyPrompts.forEach(s => { %>
+    <div class="alert alert-warning"><i class="bi bi-calendar-x"></i> <strong><%= s.label %>:</strong> mark the Sundays you can't serve as duty deacon<%= s.deadline ? ` by ${s.deadline}` : '' %>. <a href="/duty/season/<%= s.id %>" class="alert-link">Mark my blackout dates</a></div>
+  <% }) %>
+  <% openSpecials.forEach(e => { %>
+    <div class="alert alert-info"><i class="bi bi-star"></i> Duty deacon sign-up is open for <strong><%= e.title %></strong>. <a href="/duty/specials/<%= e.id %>" class="alert-link">Sign up</a></div>
+  <% }) %>
+
   <h2 class="mb-1">My Sundays</h2>
   <p class="text-muted mb-3">Welcome, <%= person.name %>.</p>
 
