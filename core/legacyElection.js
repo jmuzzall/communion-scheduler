@@ -12,6 +12,7 @@ function convertElection(target, source, rows, todayIso) {
   const insertId = () => one('SELECT last_insert_rowid() AS id').id;
   const report = { peopleCreated: [], peopleMatched: 0, admins: [], seasons: [], assignments: 0, unavailable: 0, submissions: 0, swaps: 0, remindersCarried: 0, skipped: [] };
   const dateOnly = v => (v ? String(v).slice(0, 10) : null);
+  const addDaysIso = (iso, n) => { const d = new Date(iso + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
   // People: deacons and their max shifts
   const personFor = {};
@@ -94,7 +95,8 @@ function convertElection(target, source, rows, todayIso) {
   // Current season (live schedule)
   const currentRows = rows(source, 'SELECT * FROM assignments ORDER BY date');
   const currentAssignment = {};
-  if (settings.schedule_start_date && settings.schedule_end_date) {
+  const currentEnd = settings.schedule_start_date && settings.schedule_end_date ? settings.schedule_end_date : null;
+  if (currentEnd) {
     const start = settings.schedule_start_date, end = settings.schedule_end_date;
     const status = end < todayIso ? 'archived' : currentRows.length ? 'published' : 'collecting';
     const seasonId = addSeason('Current duty season (imported)', start, end, dateOnly(settings.input_deadline), status);
@@ -104,11 +106,18 @@ function convertElection(target, source, rows, todayIso) {
   }
 
   // Next season being drafted
-  if (settingCols.includes('draft_start_date') && settings.draft_start_date && settings.draft_end_date) {
-    const drafts = has(source, 'draft_assignments') ? rows(source, 'SELECT * FROM draft_assignments ORDER BY date') : [];
-    const seasonId = addSeason('Next duty season (imported draft)', settings.draft_start_date, settings.draft_end_date,
+  // election-scheduler leaves the draft dates in place after publishing; an empty draft that overlaps
+  // the live season is that leftover, not a new season.
+  const drafts = has(source, 'draft_assignments') ? rows(source, 'SELECT * FROM draft_assignments ORDER BY date') : [];
+  let draftStart = settings.draft_start_date;
+  if (draftStart && currentEnd && draftStart <= currentEnd) {
+    if (!drafts.length) { report.skipped.push(`Next season (${draftStart} to ${settings.draft_end_date}): left over from planning the current season, with no draft schedule`); draftStart = null; }
+    else draftStart = addDaysIso(currentEnd, 7);
+  }
+  if (settingCols.includes('draft_start_date') && draftStart && settings.draft_end_date && draftStart <= settings.draft_end_date) {
+    const seasonId = addSeason('Next duty season (imported draft)', draftStart, settings.draft_end_date,
       dateOnly(settings.draft_input_deadline), drafts.length ? 'draft' : 'collecting');
-    fillSundays(seasonId, settings.draft_start_date, settings.draft_end_date);
+    fillSundays(seasonId, draftStart, settings.draft_end_date);
     for (const a of drafts) addAssignment(eventOnDay(a.date, seasonId, { claim: true }), personFor[a.candidate_id]);
     inputSeasonId = seasonId;
   }
@@ -118,8 +127,20 @@ function convertElection(target, source, rows, todayIso) {
     for (const ar of rows(source, 'SELECT * FROM schedule_archives ORDER BY created_at')) {
       const items = rows(source, 'SELECT * FROM archive_assignments WHERE archive_id = ? ORDER BY date', [ar.id]);
       if (!items.length) continue;
-      const start = ar.period_start || items[0].date, end = ar.period_end || items[items.length - 1].date;
-      const seasonId = addSeason(ar.label || `Archived season ${start}`, start, end, dateOnly(ar.input_deadline), 'archived');
+      // Date archives by their shifts: election-scheduler sometimes stamped an archive with the next period's dates.
+      const start = items[0].date, end = items[items.length - 1].date;
+      const label = ar.label || `Archived season ${start}`;
+      const mine = one("SELECT id FROM seasons WHERE ministry = 'duty' AND label = ? AND start_date = ? AND end_date = ?", [label, start, end]);
+      const owners = new Set(items.map(it => {
+        const ev = one("SELECT e.season_id FROM ministry_events e JOIN service_days d ON d.id = e.service_day_id WHERE e.ministry = 'duty' AND e.kind = 'regular' AND d.date = ?", [it.date]);
+        return ev && ev.season_id && (!mine || ev.season_id !== mine.id) ? ev.season_id : null;
+      }));
+      if (!owners.has(null)) {
+        const names = [...owners].map(id => (one('SELECT label FROM seasons WHERE id = ?', [id]) || {}).label).filter(Boolean);
+        report.skipped.push(`${label}: a copy of ${names.join(', ')} (same Sundays), so it wasn't imported again`);
+        continue;
+      }
+      const seasonId = addSeason(label, start, end, dateOnly(ar.input_deadline), 'archived');
       let skippedDays = 0, unmatched = 0;
       for (const it of items) {
         const pid = personByEmail(it.candidate_email);
@@ -128,8 +149,8 @@ function convertElection(target, source, rows, todayIso) {
         if (!ev) { skippedDays++; continue; }
         addAssignment(ev, pid);
       }
-      if (skippedDays) report.skipped.push(`${ar.label}: ${skippedDays} shift(s) on Sundays that belong to a live season`);
-      if (unmatched) report.skipped.push(`${ar.label}: ${unmatched} shift(s) for people no longer on the roster`);
+      if (skippedDays) report.skipped.push(`${label}: ${skippedDays} shift(s) on Sundays that already belong to another season`);
+      if (unmatched) report.skipped.push(`${label}: ${unmatched} shift(s) for people no longer on the roster`);
     }
   }
 
@@ -152,6 +173,19 @@ function convertElection(target, source, rows, todayIso) {
       target.run('INSERT OR IGNORE INTO season_submissions (season_id, person_id) VALUES (?, ?)', [inputSeasonId, personFor[c.id]]);
       report.submissions++;
     }
+  }
+
+  // Thursday team email: carry the coordinator's subject, message, CC list and on/off, unless already set here
+  if (settingCols.includes('sunday_email_body')) {
+    const setOnce = (key, value) => {
+      if (value === undefined || value === null || one('SELECT 1 AS x FROM meta WHERE key = ?', [key])) return;
+      target.run('INSERT INTO meta (key, value) VALUES (?, ?)', [key, String(value)]);
+      report.thursday = true;
+    };
+    setOnce('thursday_subject', settings.sunday_email_subject || null);
+    setOnce('thursday_message', settings.sunday_email_body || null);
+    setOnce('thursday_cc', settings.sunday_email_cc ? String(settings.sunday_email_cc).split(/[\s,;]+/).filter(Boolean).join(', ') : null);
+    if (settingCols.includes('sunday_reminder_enabled')) setOnce('thursday_email', settings.sunday_reminder_enabled ? 'on' : 'off');
   }
 
   // Pending swaps on the live schedule

@@ -103,6 +103,12 @@
               <input class="form-check-input" type="checkbox" id="thursdayEmail" name="thursday_email" <%= settings.thursdayEmail ? 'checked' : '' %>>
               <label class="form-check-label small" for="thursdayEmail">Thursday 2 PM email to that Sunday's duty deacons, copying staff</label>
             </div>
+            <label class="form-label small" for="thursdaySubject">Thursday email subject</label>
+            <input id="thursdaySubject" name="thursday_subject" class="form-control form-control-sm mb-2" maxlength="150" value="<%= settings.thursdaySubject %>">
+            <label class="form-label small" for="thursdayMessage">Standing message (key tasks, timing). Added after the team list; leave a blank line between paragraphs.</label>
+            <textarea id="thursdayMessage" name="thursday_message" rows="8" class="form-control form-control-sm mb-2"><%= settings.thursdayMessage %></textarea>
+            <label class="form-label small" for="thursdayCc">Also send to (emails, comma-separated)</label>
+            <input id="thursdayCc" name="thursday_cc" class="form-control form-control-sm mb-2" value="<%= settings.thursdayCc %>">
             <button class="btn btn-outline-primary w-100">Save settings</button>
           </form>
         </div>

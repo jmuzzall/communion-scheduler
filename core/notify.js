@@ -12,10 +12,14 @@ function appUrl() {
 // paragraphs: plain-text strings; each becomes a <p> in HTML and a line in text.
 async function emailPerson(person, subject, paragraphs, link) {
   if (!person || !person.notify_email) return;
+  await emailAddress(person.email, subject, paragraphs, link);
+}
+
+async function emailAddress(address, subject, paragraphs, link) {
   const html = paragraphs.map(p => `<p>${escapeHtml(p)}</p>`).join('') +
     (link ? `<p><a href="${link.url}" style="display:inline-block;padding:10px 20px;background:#C5963A;color:#fff;text-decoration:none;border-radius:6px;font-weight:bold;">${escapeHtml(link.label)}</a></p>` : '');
   const text = paragraphs.join('\n\n') + (link ? `\n\n${link.label}: ${link.url}` : '');
-  await sendEmail(person.email, subject, html, text);
+  await sendEmail(address, subject, html, text);
 }
 
 function staffRecipients() {
@@ -27,4 +31,4 @@ async function emailStaff(subject, paragraphs, link) {
   for (const s of staffRecipients()) await emailPerson(s, subject, paragraphs, link);
 }
 
-module.exports = { emailPerson, emailStaff, escapeHtml, appUrl };
+module.exports = { emailPerson, emailAddress, emailStaff, escapeHtml, appUrl };

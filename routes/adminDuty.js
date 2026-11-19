@@ -37,6 +37,9 @@ router.post('/seasons', (req, res) => {
 router.post('/settings', (req, res) => {
   duty.setMeta('duty_lookback_seasons', Math.max(0, Math.min(10, parseInt(req.body.lookback, 10) || 0)));
   duty.setMeta('thursday_email', req.body.thursday_email === 'on' ? 'on' : 'off');
+  duty.setMeta('thursday_subject', String(req.body.thursday_subject || '').trim().slice(0, 150) || 'Duty Deacon Reminder');
+  duty.setMeta('thursday_message', String(req.body.thursday_message || '').slice(0, 10000));
+  duty.setMeta('thursday_cc', duty.parseEmails(req.body.thursday_cc).join(', '));
   back(res, '', 'success', 'Duty settings saved.');
 });
 

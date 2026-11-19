@@ -18,6 +18,7 @@
           <% } else { %>
             <li><%= r.assignments %> duty assignments across <%= r.seasons.length %> season<%= r.seasons.length === 1 ? '' : 's' %></li>
             <li><%= r.unavailable %> blackout dates, <%= r.submissions %> deacons marked as submitted, <%= r.swaps %> pending swaps, <%= r.remindersCarried %> reminders already sent</li>
+            <% if (r.thursday) { %><li>Thursday email subject, message and CC list copied to Duty Deacon settings. Check them on the Duty Deacon admin page.</li><% } %>
           <% } %>
         </ul>
         <% if (r.seasons && r.seasons.length) { %>

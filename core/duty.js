@@ -4,7 +4,7 @@ const { get, all, run, transaction, lastId } = require('../db');
 const cal = require('./calendar');
 const engine = require('./engine');
 const { isEligible } = require('./eligibility');
-const { emailPerson, emailStaff, appUrl } = require('./notify');
+const { emailPerson, emailStaff, emailAddress, appUrl } = require('./notify');
 
 const DEFAULT_MAX_SHIFTS = 26;
 const SEND_HOUR = 9;
@@ -23,6 +23,9 @@ function settings() {
   return {
     lookback: parseInt(getMeta('duty_lookback_seasons', '2'), 10) || 0,
     thursdayEmail: getMeta('thursday_email', 'on') === 'on',
+    thursdaySubject: getMeta('thursday_subject', 'Duty Deacon Reminder'),
+    thursdayMessage: getMeta('thursday_message', ''),
+    thursdayCc: getMeta('thursday_cc', ''),
   };
 }
 
@@ -286,15 +289,35 @@ async function thursdayEmail(now) {
   const dutyIds = [...new Set(rows.filter(r => r.ministry === 'duty').map(r => r.person_id))];
   if (!dutyIds.length) return;
   const line = m => rows.filter(r => r.ministry === m).map(r => m === 'duty' ? r.name : `${r.name} (${engine.describePosition(r)})`).join('; ');
+  const s = settings();
   const paragraphs = [`Here is the team for ${cal.formatLongDay(sunday)}.`, `Duty deacons: ${line('duty')}`];
   if (rows.some(r => r.ministry === 'prayer')) paragraphs.push(`Prayer: ${line('prayer')}`);
   if (rows.some(r => r.ministry === 'communion')) paragraphs.push(`Communion: ${line('communion')}`);
+  // The coordinator's standing message (key tasks, timing), one paragraph per blank-line block
+  paragraphs.push(...s.thursdayMessage.split(/\r?\n\s*\r?\n/).map(p => p.trim()).filter(Boolean));
+  const subject = `${s.thursdaySubject || 'Duty Deacon Reminder'}: ${cal.formatDay(sunday)}`;
+  const link = { url: `${appUrl()}/me`, label: 'Open MPC Officer Service' };
   const staff = all(`SELECT DISTINCT p.* FROM people p JOIN role_grants r ON r.person_id = p.id WHERE r.role IN ('staff','super')`);
-  const recipients = [...dutyIds.map(id => get('SELECT * FROM people WHERE id = ?', [id])), ...staff.filter(s => !dutyIds.includes(s.id))];
+  const recipients = [...dutyIds.map(id => get('SELECT * FROM people WHERE id = ?', [id])), ...staff.filter(st => !dutyIds.includes(st.id))];
+  const emailed = new Set();
   for (const p of recipients) {
+    emailed.add(p.email.toLowerCase());
     if (sent(p.id, sunday, 'thursday')) continue;
-    await emailPerson(p, `Duty deacons for ${cal.formatDay(sunday)}`, paragraphs, { url: `${appUrl()}/me`, label: 'Open MPC Officer Service' });
+    await emailPerson(p, subject, paragraphs, link);
   }
+  // Extra CC addresses (people outside the app, such as church office staff); one send per address per Sunday
+  for (const addr of parseEmails(s.thursdayCc)) {
+    if (emailed.has(addr)) continue;
+    emailed.add(addr);
+    const person = get('SELECT * FROM people WHERE lower(email) = ?', [addr]);
+    if (person) { if (!sent(person.id, sunday, 'thursday')) await emailPerson(person, subject, paragraphs, link); continue; }
+    if (sent(0, `${sunday}:${addr}`, 'thursday-cc')) continue;
+    await emailAddress(addr, subject, paragraphs, link);
+  }
+}
+
+function parseEmails(text) {
+  return [...new Set(String(text || '').split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))];
 }
 
 async function specialReminders(now) {
@@ -339,6 +362,7 @@ async function specialReminders(now) {
 }
 
 module.exports = {
+  parseEmails,
   settings, setMeta, deacons, maxShifts, setMaxShifts, getSeason, listSeasons, seasonEvents, deadlinePassed,
   createSeason, submitAvailability, submissionStatus, planSeason, publishSeason, archiveFinishedSeasons,
   createSpecial, listSpecials, deadlineReminders, thursdayEmail, specialReminders,
