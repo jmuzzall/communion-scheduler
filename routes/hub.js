@@ -181,7 +181,7 @@ router.get('/me', requirePerson, (req, res) => {
         id: a.id, ministry: MINISTRY_NAMES[a.ministry], ministryKey: a.ministry, label: engine.describePosition(a),
       })),
     })),
-    ministries: eligibleMinistries(req.person).map(k => MINISTRY_NAMES[k]),
+    ministries: eligibleMinistries(req.person).map(k => ({ key: k, name: MINISTRY_NAMES[k] })),
     openSignups, pendingSwaps,
     success: req.query.success || null,
     error: req.query.error || null,
