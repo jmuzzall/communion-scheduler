@@ -70,6 +70,50 @@ router.post('/import/cancel', (req, res) => {
   back(res, 'success', 'Import cancelled. Nothing was changed.');
 });
 
+// Checks the person form; returns an error message, or null when it's fine.
+function personProblem(body, ignoreId) {
+  const cleanEmail = String(body.email || '').trim().toLowerCase();
+  if (!String(body.name || '').trim()) return 'Enter a name.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return 'Enter a valid email address.';
+  if (!['elder', 'deacon', 'none'].includes(body.office)) return 'Choose an office.';
+  if (!CAMPUSES.includes(body.home_campus)) return 'Choose a main location.';
+  const clash = get('SELECT id, name FROM people WHERE email = ? AND id != ?', [cleanEmail, ignoreId || 0]);
+  if (clash) return `${clash.name} already uses that email.`;
+  return null;
+}
+
+function setRoles(personId, body) {
+  const setRole = (role, on) => {
+    run('DELETE FROM role_grants WHERE person_id = ? AND role = ? AND ministry IS NULL', [personId, role]);
+    if (on) run('INSERT INTO role_grants (person_id, role) VALUES (?, ?)', [personId, role]);
+  };
+  setRole('staff', !!body.role_staff);
+  setRole('super', !!body.role_super);
+}
+
+const NEW_PERSON = { name: '', email: '', phone: '', office: 'elder', status: 'active', home_campus: 'McLean' };
+
+router.get('/new', (req, res) => {
+  res.render('hub/person-edit', { page: 'people', p: NEW_PERSON, isNew: true, roles: [], campuses: CAMPUSES, error: null });
+});
+
+router.post('/new', (req, res) => {
+  const body = req.body;
+  const problem = personProblem(body);
+  if (problem) {
+    const roles = [body.role_staff && 'staff', body.role_super && 'super'].filter(Boolean);
+    return res.render('hub/person-edit', { page: 'people', p: { ...NEW_PERSON, ...body }, isNew: true, roles, campuses: CAMPUSES, error: problem });
+  }
+  const name = body.name.trim(), email = body.email.trim().toLowerCase();
+  run('INSERT INTO people (name, email, phone, office, active, home_campus, preferred_campus) VALUES (?,?,?,?,?,?,?)',
+    [name, email, String(body.phone || '').trim() || null, body.office, body.status === 'active' ? 1 : 0, body.home_campus, body.home_campus]);
+  const id = get('SELECT id FROM people WHERE email = ?', [email]).id;
+  setRoles(id, body);
+  run('INSERT INTO audit_log (actor_person_id, action, details) VALUES (?,?,?)',
+    [req.person.id, 'person_add', JSON.stringify({ id, office: body.office, status: body.status, home_campus: body.home_campus, staff: !!body.role_staff, super: !!body.role_super })]);
+  back(res, 'success', `${name} added. They can sign in with an emailed link from the sign-in page.`);
+});
+
 router.get('/:id/edit', (req, res) => {
   const p = get('SELECT * FROM people WHERE id = ?', [req.params.id]);
   if (!p) return back(res, 'error', 'That person was not found.');
@@ -84,12 +128,8 @@ router.post('/:id', (req, res) => {
   const fail = error => res.render('hub/person-edit', { page: 'people', p: { ...p, ...req.body }, roles, campuses: CAMPUSES, error });
 
   const cleanEmail = String(email || '').trim().toLowerCase();
-  if (!String(name || '').trim()) return fail('Enter a name.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) return fail('Enter a valid email address.');
-  if (!['elder', 'deacon', 'none'].includes(office)) return fail('Choose an office.');
-  if (!CAMPUSES.includes(home_campus)) return fail('Choose a main location.');
-  const clash = get('SELECT id FROM people WHERE email = ? AND id != ?', [cleanEmail, p.id]);
-  if (clash) return fail('Another person already uses that email.');
+  const problem = personProblem(req.body, p.id);
+  if (problem) return fail(problem);
 
   const wasSuper = roles.includes('super');
   const superCount = get("SELECT COUNT(DISTINCT person_id) AS c FROM role_grants WHERE role = 'super'").c;
@@ -100,12 +140,7 @@ router.post('/:id', (req, res) => {
   run(`UPDATE people SET name = ?, email = ?, phone = ?, office = ?, active = ?, home_campus = ?, updated_at = datetime('now') WHERE id = ?`,
     [name.trim(), cleanEmail, String(phone || '').trim() || null, office, status === 'active' ? 1 : 0, home_campus, p.id]);
 
-  const setRole = (role, on) => {
-    run('DELETE FROM role_grants WHERE person_id = ? AND role = ? AND ministry IS NULL', [p.id, role]);
-    if (on) run('INSERT INTO role_grants (person_id, role) VALUES (?, ?)', [p.id, role]);
-  };
-  setRole('staff', !!role_staff);
-  setRole('super', !!role_super);
+  setRoles(p.id, req.body);
 
   run('INSERT INTO audit_log (actor_person_id, action, details) VALUES (?,?,?)',
     [req.person.id, 'person_edit', JSON.stringify({ id: p.id, office, status, home_campus, staff: !!role_staff, super: !!role_super })]);

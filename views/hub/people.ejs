@@ -12,6 +12,7 @@
         <%= counts.elders %> elders · <%= counts.deacons %> deacons · <%= counts.inactive %> inactive · <%= counts.herndon %> at Herndon
       </p>
     </div>
+    <a href="/admin/people/new" class="btn btn-gold"><i class="bi bi-person-plus"></i> Add person</a>
   </div>
 
   <div class="row g-4">
@@ -42,7 +43,7 @@
           <% if (!people.length) { %>
             <div class="text-center py-5 text-muted">
               <i class="bi bi-people" style="font-size:2.5rem;"></i>
-              <p class="mt-2 mb-0">No officers yet. Import the roster to add everyone at once.</p>
+              <p class="mt-2 mb-0">No officers yet. Import the roster to add everyone at once, or add people one at a time.</p>
             </div>
           <% } else { %>
             <div class="table-responsive">

@@ -1,14 +1,16 @@
-<%- include('../partials/head', { title: 'Edit Person' }) %>
+<% const adding = typeof isNew !== 'undefined' && isNew; %>
+<%- include('../partials/head', { title: adding ? 'Add Person' : 'Edit Person' }) %>
 <%- include('navbar') %>
 
 <div class="container mt-4 mb-5" style="max-width:640px;">
   <a href="/admin/people" class="small"><i class="bi bi-arrow-left"></i> People</a>
-  <h2 class="mt-2 mb-3">Edit <%= p.name %></h2>
+  <h2 class="mt-2 mb-3"><%= adding ? 'Add a person' : 'Edit ' + p.name %></h2>
+  <% if (adding) { %><p class="text-muted small">For someone who isn't in the roster file, such as a new officer or a staff member. They sign in with an emailed link; nothing is sent until they ask for one.</p><% } %>
   <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
 
   <div class="card border-0 shadow-sm">
     <div class="card-body">
-      <form method="POST" action="/admin/people/<%= p.id %>">
+      <form method="POST" action="/admin/people/<%= adding ? 'new' : p.id %>">
         <div class="mb-3">
           <label class="form-label" for="pName">Name</label>
           <input id="pName" type="text" name="name" class="form-control" value="<%= p.name %>" required>
@@ -56,7 +58,7 @@
           <input class="form-check-input" type="checkbox" id="roleSuper" name="role_super" value="1" <%= roles.includes('super') ? 'checked' : '' %>>
           <label class="form-check-label" for="roleSuper">Administrator: also manages people, imports and settings</label>
         </div>
-        <button type="submit" class="btn btn-gold">Save</button>
+        <button type="submit" class="btn btn-gold"><%= adding ? 'Add person' : 'Save' %></button>
       </form>
     </div>
   </div>
