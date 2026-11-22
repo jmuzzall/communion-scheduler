@@ -24,8 +24,9 @@ router.get('/', (req, res) => {
     deacons: officers.filter(p => p.office === 'deacon').length,
     inactive: officers.filter(p => !p.active).length,
     herndon: officers.filter(p => p.home_campus === 'Herndon').length,
+    dutyExempt: officers.filter(p => p.office === 'deacon' && p.duty_exempt).length,
   };
-  res.render('hub/people', { page: 'people', people, counts, success: req.query.success || null, error: req.query.error || null });
+  res.render('hub/people', { page: 'people', people, counts, success: req.query.success || null, warning: req.query.warning || null, error: req.query.error || null });
 });
 
 router.get('/template.csv', (req, res) => {
@@ -91,7 +92,31 @@ function setRoles(personId, body) {
   setRole('super', !!body.role_super);
 }
 
-const NEW_PERSON = { name: '', email: '', phone: '', office: 'elder', status: 'active', home_campus: 'McLean' };
+const NEW_PERSON = { name: '', email: '', phone: '', office: 'elder', status: 'active', home_campus: 'McLean', duty_exempt: 0, duty_exempt_reason: '' };
+
+// Duty exemption applies to deacons only; anyone else is saved as not exempt.
+function exemptValues(body) {
+  const exempt = body.office === 'deacon' && !!body.duty_exempt;
+  return { exempt: exempt ? 1 : 0, reason: exempt ? String(body.duty_exempt_reason || '').trim().slice(0, 200) || null : null };
+}
+
+// Upcoming duty Sundays still assigned to someone (published or draft), for the reassign warning.
+function upcomingDutyShifts(personId) {
+  const cal = require('../core/calendar');
+  return all(`SELECT d.date FROM assignments a JOIN ministry_events e ON e.id = a.event_id JOIN service_days d ON d.id = e.service_day_id
+              WHERE a.person_id = ? AND e.ministry = 'duty' AND d.date >= ? ORDER BY d.date`, [personId, cal.todayIso()])
+    .map(r => cal.formatDay(r.date));
+}
+
+function savedMessage(name, wasExempt, ex, personId) {
+  let msg = `${name} ${wasExempt === null ? 'added' : 'updated'}.`;
+  if (ex.exempt && !wasExempt) msg += ' They are excused from duty deacon service and will get no duty emails.';
+  if (!ex.exempt && wasExempt) msg += ' They are back on the duty deacon roster.';
+  if (wasExempt === null) msg += ' They can sign in with an emailed link from the sign-in page.';
+  const shifts = ex.exempt ? upcomingDutyShifts(personId) : [];
+  const warning = shifts.length ? `${name} is still scheduled for duty on ${shifts.join(', ')}. Reassign ${shifts.length === 1 ? 'that Sunday' : 'those Sundays'} on the Duty Deacon schedule; they won't be reminded.` : null;
+  return '/admin/people?success=' + encodeURIComponent(msg) + (warning ? '&warning=' + encodeURIComponent(warning) : '');
+}
 
 router.get('/new', (req, res) => {
   res.render('hub/person-edit', { page: 'people', p: NEW_PERSON, isNew: true, roles: [], campuses: CAMPUSES, error: null });
@@ -102,16 +127,17 @@ router.post('/new', (req, res) => {
   const problem = personProblem(body);
   if (problem) {
     const roles = [body.role_staff && 'staff', body.role_super && 'super'].filter(Boolean);
-    return res.render('hub/person-edit', { page: 'people', p: { ...NEW_PERSON, ...body }, isNew: true, roles, campuses: CAMPUSES, error: problem });
+    return res.render('hub/person-edit', { page: 'people', p: { ...NEW_PERSON, ...body, duty_exempt: body.duty_exempt ? 1 : 0 }, isNew: true, roles, campuses: CAMPUSES, error: problem });
   }
   const name = body.name.trim(), email = body.email.trim().toLowerCase();
-  run('INSERT INTO people (name, email, phone, office, active, home_campus, preferred_campus) VALUES (?,?,?,?,?,?,?)',
-    [name, email, String(body.phone || '').trim() || null, body.office, body.status === 'active' ? 1 : 0, body.home_campus, body.home_campus]);
+  const ex = exemptValues(body);
+  run('INSERT INTO people (name, email, phone, office, active, home_campus, preferred_campus, duty_exempt, duty_exempt_reason) VALUES (?,?,?,?,?,?,?,?,?)',
+    [name, email, String(body.phone || '').trim() || null, body.office, body.status === 'active' ? 1 : 0, body.home_campus, body.home_campus, ex.exempt, ex.reason]);
   const id = get('SELECT id FROM people WHERE email = ?', [email]).id;
   setRoles(id, body);
   run('INSERT INTO audit_log (actor_person_id, action, details) VALUES (?,?,?)',
-    [req.person.id, 'person_add', JSON.stringify({ id, office: body.office, status: body.status, home_campus: body.home_campus, staff: !!body.role_staff, super: !!body.role_super })]);
-  back(res, 'success', `${name} added. They can sign in with an emailed link from the sign-in page.`);
+    [req.person.id, 'person_add', JSON.stringify({ id, office: body.office, status: body.status, home_campus: body.home_campus, duty_exempt: ex.exempt, staff: !!body.role_staff, super: !!body.role_super })]);
+  res.redirect(savedMessage(name, null, ex, id));
 });
 
 router.get('/:id/edit', (req, res) => {
@@ -125,7 +151,7 @@ router.post('/:id', (req, res) => {
   if (!p) return back(res, 'error', 'That person was not found.');
   const { name, email, phone, office, status, home_campus, role_staff, role_super } = req.body;
   const roles = rolesFor(p.id).map(r => r.role);
-  const fail = error => res.render('hub/person-edit', { page: 'people', p: { ...p, ...req.body }, roles, campuses: CAMPUSES, error });
+  const fail = error => res.render('hub/person-edit', { page: 'people', p: { ...p, ...req.body, duty_exempt: req.body.duty_exempt ? 1 : 0 }, roles, campuses: CAMPUSES, error });
 
   const cleanEmail = String(email || '').trim().toLowerCase();
   const problem = personProblem(req.body, p.id);
@@ -137,14 +163,15 @@ router.post('/:id', (req, res) => {
     return fail(p.id === req.person.id ? "You can't remove your own administrator access." : 'At least one administrator is required.');
   }
 
-  run(`UPDATE people SET name = ?, email = ?, phone = ?, office = ?, active = ?, home_campus = ?, updated_at = datetime('now') WHERE id = ?`,
-    [name.trim(), cleanEmail, String(phone || '').trim() || null, office, status === 'active' ? 1 : 0, home_campus, p.id]);
+  const ex = exemptValues(req.body);
+  run(`UPDATE people SET name = ?, email = ?, phone = ?, office = ?, active = ?, home_campus = ?, duty_exempt = ?, duty_exempt_reason = ?, updated_at = datetime('now') WHERE id = ?`,
+    [name.trim(), cleanEmail, String(phone || '').trim() || null, office, status === 'active' ? 1 : 0, home_campus, ex.exempt, ex.reason, p.id]);
 
   setRoles(p.id, req.body);
 
   run('INSERT INTO audit_log (actor_person_id, action, details) VALUES (?,?,?)',
-    [req.person.id, 'person_edit', JSON.stringify({ id: p.id, office, status, home_campus, staff: !!role_staff, super: !!role_super })]);
-  back(res, 'success', `${name.trim()} updated.`);
+    [req.person.id, 'person_edit', JSON.stringify({ id: p.id, office, status, home_campus, duty_exempt: ex.exempt, staff: !!role_staff, super: !!role_super })]);
+  res.redirect(savedMessage(name.trim(), !!p.duty_exempt, ex, p.id));
 });
 
 module.exports = router;

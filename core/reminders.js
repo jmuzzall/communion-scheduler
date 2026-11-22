@@ -55,6 +55,7 @@ async function personalReminders(now) {
     for (const [personId, duties] of byPerson) {
       if (alreadySent(personId, date, kind)) continue;
       const person = get('SELECT * FROM people WHERE id = ?', [personId]);
+      if (person.duty_exempt) continue; // excused from duty: no duty emails, even for a shift not yet reassigned
       await emailPerson(person, `${daysAhead === 1 ? 'Tomorrow' : 'Next Sunday'}: you're serving on ${cal.formatDay(date)}`, [
         `Hi ${person.name},`,
         `A reminder that you're serving on ${cal.formatLongDay(date)}:`,

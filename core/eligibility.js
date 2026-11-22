@@ -1,9 +1,9 @@
 // Who may serve in each ministry. Communion takes active and inactive officers;
-// Prayer is active elders; Duty Deacon is active McLean deacons.
+// Prayer is active elders; Duty Deacon is active McLean deacons who aren't exempt.
 const RULES = {
   communion: p => p.office === 'elder' || p.office === 'deacon',
   prayer: p => p.office === 'elder' && !!p.active,
-  duty: p => p.office === 'deacon' && !!p.active && p.home_campus === 'McLean',
+  duty: p => p.office === 'deacon' && !!p.active && p.home_campus === 'McLean' && !p.duty_exempt,
 };
 
 const MINISTRY_NAMES = { communion: 'Communion', prayer: 'Prayer', duty: 'Duty Deacon' };

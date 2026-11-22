@@ -25,7 +25,8 @@ router.get('/', (req, res) => {
     return { ...e, display: cal.formatDay(e.date), open: engine.isOpen(e), filled: slots.reduce((n, s) => n + s.filled, 0), needed: slots.reduce((n, s) => n + s.needed, 0),
       window: `${cal.formatDay(e.signup_opens)} to ${cal.formatDay(e.signup_closes)}` };
   });
-  res.render('hub/admin-duty', { page: 'schedule', seasons, specials, settings: duty.settings(), success: req.query.success || null, error: req.query.error || null });
+  const exempt = all("SELECT id, name, duty_exempt_reason FROM people WHERE office = 'deacon' AND duty_exempt = 1 ORDER BY name");
+  res.render('hub/admin-duty', { page: 'schedule', seasons, specials, exempt, isSuper: res.locals.isSuper, settings: duty.settings(), success: req.query.success || null, error: req.query.error || null });
 });
 
 router.post('/seasons', (req, res) => {

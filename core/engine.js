@@ -325,6 +325,10 @@ function assignmentDetail(id) {
 // Would giving `incoming` to `personId` (while they give up `outgoing`) double-book or conflict with an away day?
 function takeProblem(personId, name, outgoing, incoming) {
   const self = name === 'You';
+  // Nobody takes a slot in a ministry they're not on the roster for (for example, a deacon excused from duty)
+  if (!isEligible(get('SELECT * FROM people WHERE id = ?', [personId]), incoming.ministry)) {
+    return `${self ? "You aren't" : name + " isn't"} on the ${MINISTRY_NAMES[incoming.ministry].toLowerCase()} roster, so ${self ? 'you' : 'they'} can't take that Sunday.`;
+  }
   const away = awayStatus(personId, incoming.service_day_id, incoming.ministry);
   if (away.blocked) return `${self ? "You're" : name + ' is'} marked away on ${cal.formatDay(incoming.date)}.`;
   const clash = dayAssignments(personId, incoming.service_day_id)

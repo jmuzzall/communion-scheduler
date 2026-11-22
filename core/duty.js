@@ -298,8 +298,11 @@ async function thursdayEmail(now) {
   const subject = `${s.thursdaySubject || 'Duty Deacon Reminder'}: ${cal.formatDay(sunday)}`;
   const link = { url: `${appUrl()}/me`, label: 'Open MPC Officer Service' };
   const staff = all(`SELECT DISTINCT p.* FROM people p JOIN role_grants r ON r.person_id = p.id WHERE r.role IN ('staff','super')`);
-  const recipients = [...dutyIds.map(id => get('SELECT * FROM people WHERE id = ?', [id])), ...staff.filter(st => !dutyIds.includes(st.id))];
-  const emailed = new Set();
+  // Deacons excused from duty get no duty emails, even if a shift hasn't been reassigned yet
+  const dutyPeople = dutyIds.map(id => get('SELECT * FROM people WHERE id = ?', [id]));
+  const exempt = dutyPeople.filter(p => p.duty_exempt);
+  const recipients = [...dutyPeople.filter(p => !p.duty_exempt), ...staff.filter(st => !dutyIds.includes(st.id))];
+  const emailed = new Set(exempt.map(p => p.email.toLowerCase()));
   for (const p of recipients) {
     emailed.add(p.email.toLowerCase());
     if (sent(p.id, sunday, 'thursday')) continue;
@@ -310,6 +313,7 @@ async function thursdayEmail(now) {
     if (emailed.has(addr)) continue;
     emailed.add(addr);
     const person = get('SELECT * FROM people WHERE lower(email) = ?', [addr]);
+    if (person && person.duty_exempt && person.office === 'deacon') continue; // excused from duty
     if (person) { if (!sent(person.id, sunday, 'thursday')) await emailPerson(person, subject, paragraphs, link); continue; }
     if (sent(0, `${sunday}:${addr}`, 'thursday-cc')) continue;
     await emailAddress(addr, subject, paragraphs, link);

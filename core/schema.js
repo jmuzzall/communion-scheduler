@@ -59,6 +59,11 @@ function initCoreSchema(db) {
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   )`);
+  // Deacons an administrator has excused from duty deacon service (physical limitation, other duties)
+  if (!tableColumns(db, 'people').includes('duty_exempt')) {
+    db.run('ALTER TABLE people ADD COLUMN duty_exempt INTEGER NOT NULL DEFAULT 0');
+    db.run('ALTER TABLE people ADD COLUMN duty_exempt_reason TEXT');
+  }
 
   db.run(`CREATE TABLE IF NOT EXISTS role_grants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
