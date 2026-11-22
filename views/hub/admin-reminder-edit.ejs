@@ -1,0 +1,82 @@
+<% const isNew = !rule.id; %>
+<%- include('../partials/head', { title: (isNew ? 'Add' : 'Edit') + ' ' + name + ' Reminder' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5" style="max-width:1000px;">
+  <a href="/admin/<%= ministry %>/reminders" class="small"><i class="bi bi-arrow-left"></i> <%= name %> reminders</a>
+  <h2 class="mt-2 mb-3"><%= isNew ? 'Add a' : 'Edit' %> <%= name.toLowerCase() %> reminder</h2>
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+  <div class="row g-4">
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <form method="POST" action="/admin/<%= ministry %>/reminders<%= isNew ? '' : '/' + rule.id %>">
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label" for="daysBefore">Days before Sunday</label>
+                <input id="daysBefore" type="number" name="days_before" min="0" max="<%= maxDays %>" class="form-control" value="<%= rule.days_before %>" required aria-describedby="daysHelp">
+                <div id="daysHelp" class="form-text">0 is Sunday morning, 1 is Saturday, 7 is a week ahead.</div>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label" for="sendHour">Send at (Eastern)</label>
+                <select id="sendHour" name="send_hour" class="form-select">
+                  <% hours.forEach(h => { %><option value="<%= h.value %>" <%= Number(rule.send_hour) === h.value ? 'selected' : '' %>><%= h.label %></option><% }) %>
+                </select>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="subject">Subject</label>
+              <input id="subject" type="text" name="subject" maxlength="150" class="form-control" value="<%= rule.subject %>" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="body">Message</label>
+              <textarea id="body" name="body" rows="10" maxlength="5000" class="form-control" required aria-describedby="bodyHelp"><%= rule.body %></textarea>
+              <div id="bodyHelp" class="form-text">Leave a blank line between paragraphs. A "View My Sundays" button is added at the end.</div>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="enabled" name="enabled" value="1" <%= Number(rule.enabled) ? 'checked' : '' %>>
+              <label class="form-check-label" for="enabled">On (uncheck to keep it but stop sending)</label>
+            </div>
+            <button type="submit" class="btn btn-gold"><%= isNew ? 'Add reminder' : 'Save' %></button>
+            <a href="/admin/<%= ministry %>/reminders" class="btn btn-link">Cancel</a>
+          </form>
+        </div>
+      </div>
+
+      <% if (preview) { %>
+        <div class="card border-0 shadow-sm mt-4">
+          <div class="card-header bg-white d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="fw-bold">Preview <span class="fw-normal small text-muted">(saved version, sample details)</span></span>
+            <form method="POST" action="/admin/<%= ministry %>/reminders/<%= rule.id %>/test">
+              <button class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope"></i> Email me a test</button>
+            </form>
+          </div>
+          <div class="card-body">
+            <p class="mb-2"><strong>Subject:</strong> <%= preview.subject %></p>
+            <% preview.paragraphs.forEach(p => { %><p class="mb-2" style="white-space:pre-line;"><%= p %></p><% }) %>
+            <span class="btn btn-sm btn-gold disabled" aria-hidden="true">View My Sundays</span>
+          </div>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="col-lg-4">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white fw-bold">Placeholders</div>
+        <div class="card-body small">
+          <p class="text-muted">Type these in the subject or message; each is filled in for the person receiving it.</p>
+          <dl class="mb-0">
+            <% placeholders.forEach(([key, label, example]) => { %>
+              <dt><code><%= key %></code></dt>
+              <dd class="text-muted mb-2"><%= label %>, e.g. <%= example %></dd>
+            <% }) %>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

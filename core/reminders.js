@@ -35,13 +35,18 @@ async function runAutofills(now) {
   }
 }
 
+// Built-in 7-day and 1-day reminders for duty deacons. Communion and prayer use the staff-set rules in
+// customReminders.js instead.
 async function personalReminders(now) {
   if (now.hour < SEND_HOUR) return;
+  const ruled = require('./customReminders').RULE_MINISTRIES;
   for (const [kind, daysAhead] of [['7day', 7], ['1day', 1]]) {
     const date = cal.addDays(now.date, daysAhead);
     const rows = all(`SELECT a.person_id, e.ministry, pos.service_time, pos.campus, pos.area FROM assignments a
                       JOIN ministry_events e ON e.id = a.event_id JOIN service_days d ON d.id = e.service_day_id
-                      JOIN positions pos ON pos.id = a.position_id WHERE d.date = ? AND ${engine.VISIBLE_SQL} ORDER BY pos.sort_order`, [date]);
+                      JOIN positions pos ON pos.id = a.position_id
+                      WHERE d.date = ? AND e.ministry NOT IN (${ruled.map(() => '?').join(',')}) AND ${engine.VISIBLE_SQL}
+                      ORDER BY pos.sort_order`, [date, ...ruled]);
     const byPerson = new Map();
     for (const r of rows) {
       if (!byPerson.has(r.person_id)) byPerson.set(r.person_id, []);
@@ -120,6 +125,7 @@ async function tick() {
     duty.archiveFinishedSeasons();
     await runAutofills(now);
     await personalReminders(now);
+    await require('./customReminders').runRules(now);
     await twoWeekNudges(now);
     await monthlyDigest(now);
     await duty.deadlineReminders(now);

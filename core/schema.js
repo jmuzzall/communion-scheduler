@@ -233,9 +233,37 @@ function initCoreSchema(db) {
     created_at TEXT DEFAULT (datetime('now'))
   )`);
 
+  // Communion and prayer reminders before each Sunday, set by staff (days before, send time, subject, message)
+  db.run(`CREATE TABLE IF NOT EXISTS reminder_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ministry TEXT NOT NULL,
+    days_before INTEGER NOT NULL,
+    send_hour INTEGER NOT NULL DEFAULT 9,
+    subject TEXT NOT NULL,
+    body TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT
+  )`);
+
   seedMinistries(db);
   seedPositions(db);
+  seedReminderRules(db);
   require('./legacyCommunion').migrateLegacyCommunion(db, rows);
+}
+
+// The original fixed 7-day and 1-day reminders become each ministry's first rules. Seeded once,
+// so staff can delete them without them coming back.
+function seedReminderRules(db) {
+  if (rows(db, "SELECT 1 AS x FROM meta WHERE key = 'reminder_rules_seeded'").length) return;
+  const { DEFAULT_RULES } = require('./customReminders');
+  for (const ministry of ['communion', 'prayer']) {
+    for (const r of DEFAULT_RULES) {
+      db.run('INSERT INTO reminder_rules (ministry, days_before, send_hour, subject, body) VALUES (?,?,?,?,?)',
+        [ministry, r.days_before, r.send_hour, r.subject, r.body]);
+    }
+  }
+  db.run("INSERT INTO meta (key, value) VALUES ('reminder_rules_seeded', datetime('now'))");
 }
 
 function seedMinistries(db) {

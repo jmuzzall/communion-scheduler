@@ -1,0 +1,53 @@
+<%- include('../partials/head', { title: name + ' Reminders' }) %>
+<%- include('navbar') %>
+
+<div class="container mt-4 mb-5" style="max-width:900px;">
+  <a href="/admin/<%= ministry %>" class="small"><i class="bi bi-arrow-left"></i> <%= name %> schedule</a>
+  <% if (success) { %><div class="alert alert-success alert-dismissible fade show mt-3"><%= success %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+  <% if (error) { %><div class="alert alert-danger alert-dismissible fade show mt-3"><%= error %><button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div><% } %>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mt-2 mb-3">
+    <div>
+      <h2 class="mb-1"><%= name %> reminders</h2>
+      <p class="text-muted small mb-0">Emails to everyone serving <%= name.toLowerCase() %> on a Sunday, sent the number of days before that you choose (Eastern time). Each person gets each reminder once per Sunday.</p>
+    </div>
+    <% if (rules.length < maxRules) { %>
+      <a href="/admin/<%= ministry %>/reminders/new" class="btn btn-gold"><i class="bi bi-plus-lg"></i> Add reminder</a>
+    <% } %>
+  </div>
+
+  <% if (!rules.length) { %>
+    <div class="card border-0 shadow-sm"><div class="card-body text-center text-muted py-5">
+      <i class="bi bi-bell-slash" style="font-size:2rem;"></i>
+      <p class="mt-2 mb-0">No reminders. People serving <%= name.toLowerCase() %> won't be reminded before their Sunday.</p>
+    </div></div>
+  <% } else { %>
+    <div class="list-group shadow-sm">
+      <% rules.forEach(r => { %>
+        <div class="list-group-item d-flex flex-wrap align-items-center gap-3 <%= r.enabled ? '' : 'bg-light' %>">
+          <div class="flex-grow-1" style="min-width:240px;">
+            <div class="fw-bold">
+              <i class="bi <%= r.enabled ? 'bi-bell text-primary' : 'bi-bell-slash text-muted' %>" aria-hidden="true"></i>
+              <%= r.timing %>
+              <% if (!r.enabled) { %><span class="badge bg-secondary ms-1">Off</span><% } %>
+            </div>
+            <div class="small text-muted text-truncate" style="max-width:520px;">Subject: <%= r.subject %></div>
+            <div class="small text-muted">Sent <%= r.sentCount %> time<%= r.sentCount === 1 ? '' : 's' %> so far</div>
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-sm btn-outline-primary" href="/admin/<%= ministry %>/reminders/<%= r.id %>">Edit</a>
+            <form method="POST" action="/admin/<%= ministry %>/reminders/<%= r.id %>/toggle">
+              <button class="btn btn-sm btn-outline-secondary"><%= r.enabled ? 'Turn off' : 'Turn on' %></button>
+            </form>
+            <form method="POST" action="/admin/<%= ministry %>/reminders/<%= r.id %>/delete" onsubmit="return confirm('Delete this reminder? It stops being sent right away.');">
+              <button class="btn btn-sm btn-outline-danger" aria-label="Delete reminder"><i class="bi bi-trash"></i></button>
+            </form>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    <p class="small text-muted mt-2">Up to <%= maxRules %> reminders. Someone who signs up after a reminder's day has passed doesn't get that one; they still get the later ones.</p>
+  <% } %>
+</div>
+
+<%- include('../partials/footer') %>

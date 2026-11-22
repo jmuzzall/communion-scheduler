@@ -7,8 +7,78 @@ const engine = require('../core/engine');
 const cal = require('../core/calendar');
 const { isEligible, MINISTRY_NAMES } = require('../core/eligibility');
 
+const reminders = require('../core/customReminders');
+
 // Ministries where staff can mark slots as covered (a pastor praying).
 const COVERABLE = ['prayer'];
+
+// Reminder rules for communion and prayer: /admin/<ministry>/reminders
+function mountReminderRoutes(router, ministry, name, back) {
+  const formView = (res, rule, error, status = 200) => res.status(status).render('hub/admin-reminder-edit', {
+    page: 'schedule', ministry, name, rule, error, success: (!error && res.req.query.success) || null,
+    hours: reminders.HOURS.map(h => ({ value: h, label: reminders.hourLabel(h) })),
+    placeholders: reminders.PLACEHOLDERS, maxDays: reminders.MAX_DAYS,
+    preview: rule.id && !error ? reminders.preview(rule, res.req.person) : null,
+  });
+
+  router.get('/reminders', (req, res) => {
+    res.render('hub/admin-reminders', {
+      page: 'schedule', ministry, name, rules: reminders.listRules(ministry), maxRules: reminders.MAX_RULES,
+      success: req.query.success || null, error: req.query.error || null,
+    });
+  });
+
+  router.get('/reminders/new', (req, res) => {
+    formView(res, { ministry, days_before: 3, send_hour: 9, subject: '', body: reminders.DEFAULT_RULES[0].body, enabled: 1 }, null);
+  });
+
+  router.post('/reminders', (req, res) => {
+    const v = reminders.validate(req.body);
+    if (v.error) return formView(res, { ministry, ...req.body, enabled: req.body.enabled ? 1 : 0 }, v.error, 400);
+    const r = reminders.createRule(ministry, v.values, req.person.id);
+    if (r.error) return back(res, '/reminders', 'error', r.error);
+    back(res, '/reminders', 'success', 'Reminder added.');
+  });
+
+  router.get('/reminders/:id(\\d+)', (req, res) => {
+    const rule = reminders.getRule(ministry, req.params.id);
+    if (!rule) return back(res, '/reminders', 'error', 'That reminder was not found.');
+    formView(res, rule, null);
+  });
+
+  router.post('/reminders/:id(\\d+)', (req, res) => {
+    const rule = reminders.getRule(ministry, req.params.id);
+    if (!rule) return back(res, '/reminders', 'error', 'That reminder was not found.');
+    const v = reminders.validate(req.body);
+    if (v.error) return formView(res, { ...rule, ...req.body, enabled: req.body.enabled ? 1 : 0 }, v.error, 400);
+    reminders.updateRule(ministry, rule.id, v.values, req.person.id);
+    back(res, `/reminders/${rule.id}`, 'success', 'Reminder saved.');
+  });
+
+  router.post('/reminders/:id(\\d+)/toggle', (req, res) => {
+    const rule = reminders.getRule(ministry, req.params.id);
+    if (!rule) return back(res, '/reminders', 'error', 'That reminder was not found.');
+    reminders.setEnabled(ministry, rule.id, !rule.enabled, req.person.id);
+    back(res, '/reminders', 'success', rule.enabled ? 'Reminder turned off.' : 'Reminder turned on.');
+  });
+
+  router.post('/reminders/:id(\\d+)/delete', (req, res) => {
+    const r = reminders.deleteRule(ministry, req.params.id, req.person.id);
+    if (r.error) return back(res, '/reminders', 'error', r.error);
+    back(res, '/reminders', 'success', 'Reminder deleted.');
+  });
+
+  router.post('/reminders/:id(\\d+)/test', async (req, res) => {
+    const rule = reminders.getRule(ministry, req.params.id);
+    if (!rule) return back(res, '/reminders', 'error', 'That reminder was not found.');
+    try {
+      await reminders.sendTest(rule, req.person);
+      back(res, `/reminders/${rule.id}`, 'success', `Test sent to ${req.person.email}. It uses sample details and starts with [Test].`);
+    } catch (e) {
+      back(res, `/reminders/${rule.id}`, 'error', `The test email could not be sent: ${e.message}`);
+    }
+  });
+}
 
 function adminScheduleRouter(ministry) {
   const router = express.Router();
@@ -16,6 +86,8 @@ function adminScheduleRouter(ministry) {
   const back = (res, path, key, msg) => res.redirect(`/admin/${ministry}${path}?${key}=${encodeURIComponent(msg)}`);
 
   router.use(requireStaffFor(ministry));
+
+  if (reminders.RULE_MINISTRIES.includes(ministry)) mountReminderRoutes(router, ministry, name, back);
 
   router.get('/', (req, res) => {
     const today = cal.todayIso();
