@@ -57,6 +57,7 @@ async function start() {
     const staging = require('./core/staging');
     console.log(`MPC Officer Service running on port ${PORT}${staging.isStaging() ? ' (staging: testers only)' : ''}`);
     console.log(`Sign in: http://localhost:${PORT}/signin`);
+    console.log(`[Mailer] Sending email via ${require('./services/mailer').mailMethod()}`);
   });
 }
 

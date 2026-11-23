@@ -3,6 +3,55 @@ const staging = require('../core/staging');
 
 let transporter;
 
+// ── Microsoft 365 (Graph) sending ─────────────────────────────
+// Used when MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET and MAIL_FROM are all set: the app signs in as
+// the church's app registration and sends from the MAIL_FROM mailbox. Otherwise SMTP (or the console).
+function graphConfigured() {
+  return !!(process.env.MS_TENANT_ID && process.env.MS_CLIENT_ID && process.env.MS_CLIENT_SECRET && process.env.MAIL_FROM);
+}
+
+let graphToken = null; // { value, expiresAt }
+
+async function getGraphToken() {
+  if (graphToken && graphToken.expiresAt > Date.now() + 60 * 1000) return graphToken.value;
+  const resp = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(process.env.MS_TENANT_ID)}/oauth2/v2.0/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.MS_CLIENT_ID,
+      client_secret: process.env.MS_CLIENT_SECRET,
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials',
+    }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || !data.access_token) {
+    // Microsoft's error text names the problem (wrong secret, expired secret, wrong tenant) without echoing the secret
+    throw new Error(`Microsoft sign-in failed (${resp.status}): ${data.error || ''} ${String(data.error_description || '').split('\r\n')[0]}`.trim());
+  }
+  graphToken = { value: data.access_token, expiresAt: Date.now() + (data.expires_in || 3600) * 1000 };
+  return graphToken.value;
+}
+
+async function sendViaGraph({ to, subject, html }) {
+  const token = await getGraphToken();
+  const recipients = String(to).split(',').map(a => a.trim()).filter(Boolean).map(address => ({ emailAddress: { address } }));
+  const resp = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(process.env.MAIL_FROM)}/sendMail`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: { subject, body: { contentType: 'HTML', content: html }, toRecipients: recipients },
+      saveToSentItems: false,
+    }),
+  });
+  if (resp.status === 401) graphToken = null; // try a fresh sign-in next time
+  if (!resp.ok) {
+    const data = await resp.json().catch(() => ({}));
+    const msg = data.error ? `${data.error.code}: ${data.error.message}` : `HTTP ${resp.status}`;
+    throw new Error(`Microsoft send failed (${resp.status}): ${msg}`);
+  }
+}
+
 function getTransporter() {
   if (transporter) return transporter;
   if (process.env.SMTP_HOST && process.env.SMTP_PASS && process.env.SMTP_PASS !== 'your-app-password') {
@@ -36,6 +85,15 @@ async function sendEmail(to, subject, html, text) {
       return { success: true, suppressed: true };
     }
     to = allowed.join(', ');
+  }
+  if (graphConfigured()) {
+    try {
+      await sendViaGraph({ to, subject, html: wrapHtmlEmail(subject, html) });
+      return { success: true };
+    } catch (err) {
+      console.error('[Mailer] Send failed:', err.message);
+      return { success: false, error: err.message };
+    }
   }
   const t = getTransporter();
   try {
@@ -109,4 +167,10 @@ MPC Officer Service
 </body></html>`;
 }
 
-module.exports = { sendEmail, sendSms };
+function mailMethod() {
+  if (graphConfigured()) return `Microsoft 365 (${process.env.MAIL_FROM})`;
+  if (process.env.SMTP_HOST && process.env.SMTP_PASS && process.env.SMTP_PASS !== 'your-app-password') return `SMTP (${process.env.SMTP_HOST})`;
+  return 'console only (no email configured)';
+}
+
+module.exports = { sendEmail, sendSms, mailMethod };
